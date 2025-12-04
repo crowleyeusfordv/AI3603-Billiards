@@ -28,7 +28,9 @@ env = PoolEnv()
 results = {'AGENT_A_WIN': 0, 'AGENT_B_WIN': 0, 'SAME': 0}
 n_games = 40
 
-agent_a, agent_b = BasicAgent(), NewAgent()
+agent_a, agent_b = BasicAgent(), NewAgent() # 原版：太慢了，先注释掉
+# agent_a, agent_b = NewAgent(), NewAgent()     # 提速：自己打自己
+# print("⚠️ 极速测试模式：NewAgent vs NewAgent (如果不卡说明你的代码没问题)")
 
 players = [agent_a, agent_b]  # 用于切换先后手
 target_ball_choice = ['solid', 'solid', 'stripe', 'stripe']  # 轮换球型
