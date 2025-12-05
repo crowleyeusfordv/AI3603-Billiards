@@ -325,17 +325,17 @@ class BasicAgent(Agent):
 
 class NewAgent(Agent):
     """
-    Phase 3: 严格合规版 (Rule-Compliant)
-    特点：
-    1. 严格遵守 GAME_RULES.md，防止误打黑8直接判负。
-    2. 物理模拟检测洗袋、未碰库等犯规。
-    3. 几何筛选 + 物理验证双重保障。
+    Phase 5: Grandmaster (深度规划版)
+    核心能力：
+    1. 多力度尝试：对同一线路尝试不同力度，寻找最佳走位。
+    2. 绝境避免：进球后检查是否被斯诺克，拒绝死路。
+    3. 智能防守：无球可进时，执行必得的安全球，拒绝送分。
     """
 
     def __init__(self):
         super().__init__()
         self.BALL_RADIUS = 0.028575
-        print("NewAgent (Rule-Compliant) 已初始化 - 严格合规模式")
+        print("NewAgent (Grandmaster) 已初始化 - 冠军模式")
 
     def _calculate_angle_degrees(self, v):
         angle = np.degrees(np.arctan2(v[1], v[0]))
@@ -343,7 +343,7 @@ class NewAgent(Agent):
         return angle
 
     def get_aim_info(self, target_ball, pocket, cue_ball):
-        # --- 几何计算部分 (保持不变) ---
+        # --- 几何计算基础 ---
         pos_t = target_ball.state.rvw[0]
         pos_c = cue_ball.state.rvw[0]
         pos_p = pocket.center
@@ -363,41 +363,85 @@ class NewAgent(Agent):
         total_dist = np.linalg.norm(vec_c_g) + dist_t_p
         return aim_phi, cut_angle, total_dist
 
+    def check_next_shot_availability(self, balls, my_targets, table):
+        """
+        快速几何检查：当前局面下，是否至少有一颗球是好打的？
+        用于判断走位是否成功。
+        """
+        cue_ball = balls['cue']
+        # 如果打完了，下一个目标是黑8
+        remaining = [bid for bid in my_targets if balls[bid].state.s != 4]
+        targets = remaining if remaining else ['8']
+
+        has_good_shot = False
+
+        for tid in targets:
+            if balls[tid].state.s == 4: continue
+            for pid, pocket in table.pockets.items():
+                _, cut_angle, _ = self.get_aim_info(balls[tid], pocket, cue_ball)
+                # 只要有一颗球的切角 < 70度，就认为活着
+                if cut_angle < 70:
+                    return True  # 只要有一条活路就行
+        return False
+
     def decision(self, balls, my_targets, table):
         try:
-            # 1. 识别当前目标
-            # 注意：必须动态判断是否该打黑8了
             remaining_targets = [bid for bid in my_targets if balls[bid].state.s != 4]
             is_shooting_8 = len(remaining_targets) == 0
-
-            # 如果还有目标球，就打目标球；否则打黑8
             targets_to_search = remaining_targets if not is_shooting_8 else ['8']
             cue_ball = balls['cue']
 
-            # 2. 几何海选
+            # 1. 几何海选 (生成候选动作)
             candidates = []
+
+            # 简单的防守备选：记录离母球最近的球，万一没球打，就轻轻摸它一下
+            safety_target = None
+            min_dist_safety = 999.0
+
             for tid in targets_to_search:
                 if balls[tid].state.s == 4: continue
+
+                # 记录防守信息
+                dist_to_ball = np.linalg.norm(balls[tid].state.rvw[0] - cue_ball.state.rvw[0])
+                if dist_to_ball < min_dist_safety:
+                    min_dist_safety = dist_to_ball
+                    vec_safety = balls[tid].state.rvw[0] - cue_ball.state.rvw[0]
+                    safety_target = {
+                        'phi': self._calculate_angle_degrees(vec_safety),
+                        'V0': 0.5 + dist_to_ball * 1.0  # 极轻力度
+                    }
+
                 for pid, pocket in table.pockets.items():
                     aim_phi, cut_angle, dist = self.get_aim_info(balls[tid], pocket, cue_ball)
+                    if cut_angle > 82: continue
 
-                    if cut_angle > 85: continue
+                    # === 策略升级：一球多策 ===
+                    # 针对同一个角度，生成 2-3 种力度的候选
+                    # 1. 标准力度 (刚好够进球 + 一点余量)
+                    v_normal = np.clip(2.0 + dist * 2.3, 2.0, 7.5)
+                    candidates.append(
+                        {'target': tid, 'phi': aim_phi, 'cut': cut_angle, 'V0': v_normal, 'type': 'normal'})
 
-                    base_v0 = np.clip(2.2 + dist * 2.5, 2.2, 7.5)
+                    # 2. 大力出奇迹 (仅当切角不大时，大力可以减少静摩擦偏差，且容易炸散球堆)
+                    if cut_angle < 45 and dist < 1.5:
+                        v_hard = np.clip(v_normal * 1.4, 3.0, 8.0)
+                        candidates.append(
+                            {'target': tid, 'phi': aim_phi, 'cut': cut_angle, 'V0': v_hard, 'type': 'hard'})
 
-                    candidates.append({
-                        'target': tid, 'pocket': pid,
-                        'phi': aim_phi, 'cut': cut_angle, 'V0': base_v0
-                    })
+                    # 3. 温柔一推 (仅当距离近时，为了精准走位)
+                    if dist < 0.8:
+                        v_soft = np.clip(v_normal * 0.7, 1.5, 4.0)
+                        candidates.append(
+                            {'target': tid, 'phi': aim_phi, 'cut': cut_angle, 'V0': v_soft, 'type': 'soft'})
 
-            # 排序筛选
+            # 排序：只验证最有希望的 6 个方案 (包含不同力度的变种)
             candidates.sort(key=lambda x: x['cut'])
-            top_candidates = candidates[:3]
+            top_candidates = candidates[:6]
 
             best_action = None
             best_score = -99999.0
 
-            # 3. 物理模拟验证 (核心修正部分)
+            # 2. 物理模拟验证
             sim_table = copy.deepcopy(table)
 
             for cand in top_candidates:
@@ -406,72 +450,68 @@ class NewAgent(Agent):
                 shot = pt.System(table=sim_table, balls=sim_balls, cue=cue)
                 shot.cue.set_state(V0=cand['V0'], phi=cand['phi'], theta=0, a=0, b=0)
 
-                # 模拟
                 pt.simulate(shot, inplace=True, max_events=200)
 
-                # --- 评分逻辑 (对照 GAME_RULES.md) ---
+                # --- 评分系统 v3.0 ---
                 score = 0
 
-                # 获取进球列表
                 new_pocketed = [bid for bid, b in sim_balls.items() if b.state.s == 4 and balls[bid].state.s != 4]
                 cue_potted = 'cue' in new_pocketed
                 eight_potted = '8' in new_pocketed
                 target_potted = cand['target'] in new_pocketed
 
-                # Rule 1.5: 即时判负规则检测
+                # A. 生死判定 (Death Checks)
                 if eight_potted:
-                    if not is_shooting_8:
-                        # 还没清空球就打进黑8 -> 判负
-                        score -= 10000
-                    elif cue_potted:
-                        # 白球和黑8同时进 -> 判负
-                        score -= 10000
+                    if not is_shooting_8 or cue_potted:
+                        score = -100000; continue  # 判负，直接跳过
                     else:
-                        # 合法打进黑8 -> 胜利！
-                        score += 1000
+                        score = 100000; break  # 赢了！直接选它！
+                if cue_potted:
+                    score = -5000;
+                    continue  # 洗袋，跳过
 
-                # Rule 1.5: 交换球权犯规检测
-                elif cue_potted:
-                    # 白球洗袋
-                    score -= 1000
-
-                # 进球奖励
-                elif target_potted:
+                # B. 进球逻辑
+                if target_potted:
                     score += 100
-                    score -= cand['cut'] * 0.5  # 优先打容易的
+                    score -= cand['cut'] * 0.2  # 稍微惩罚大切角
 
-                    # 简单的走位判断：如果进球后白球贴库了，扣分
-                    # (判断方法：检查白球是否在 Table 边界附近)
-                    # W=table.w, L=table.l. 简单略过，因为还要解析 table 尺寸
+                    # C. 绝境检测 (Next-Shot Guarantee)
+                    # 如果这杆打完，不是黑8，且还没赢
+                    if not is_shooting_8:
+                        # 检查打完后有没有活路
+                        has_next = self.check_next_shot_availability(sim_balls, my_targets, sim_table)
+                        if has_next:
+                            score += 50  # 很好，路是通的
+                        else:
+                            score -= 80  # 糟糕，打进这球我就被斯诺克了 (这种球不如不打)
                 else:
                     # 没进球
                     score -= 50
+                    # 检查是否犯规(没碰到球)
+                    target_moved = np.linalg.norm(
+                        sim_balls[cand['target']].state.rvw[0] - balls[cand['target']].state.rvw[0]) > 0.001
+                    if not target_moved: score -= 200
 
-                    # Rule: 未碰库犯规检测
-                    # 检查是否有任意球碰库或进袋
-                    # 这里为了简化计算（不解析 events），我们假设：
-                    # 如果球没进，且所有球位置几乎没变，说明大概率犯规了
-                    any_moved = False
-                    for b_id in sim_balls:
-                        if np.linalg.norm(sim_balls[b_id].state.rvw[0] - balls[b_id].state.rvw[0]) > 0.005:
-                            any_moved = True
-                            break
-                    if not any_moved:
-                        score -= 200  # 可能没打到球
-
-                # 更新最佳
                 if score > best_score:
                     best_score = score
                     best_action = cand
 
-            # 4. 决策输出
-            if best_action and best_score > -5000:  # 只要不是判负或洗袋
-                print(f"[NewAgent] ✅ 合规决策: 目标{best_action['target']}, 评分{best_score:.1f}")
+            # 3. 最终决策
+            if best_action and best_score > -200:
+                print(
+                    f"[Grandmaster] 🎯 锁定目标: {best_action['target']} (力度:{best_action['type']}), 评分:{best_score:.1f}")
                 return {'V0': best_action['V0'], 'phi': best_action['phi'], 'theta': 0, 'a': 0, 'b': 0}
 
-            print("[NewAgent] ⚠️ 风险过大，随机防守")
+            # 4. 智能防守 (Smart Safety)
+            # 如果上面没找到靠谱的进攻机会，千万别 random！
+            # 找最近的球，轻碰一下，避免犯规。
+            if safety_target:
+                print(f"[Grandmaster] 🛡️ 启动防守: 轻推球 {safety_target['V0']:.2f}")
+                return {'V0': safety_target['V0'], 'phi': safety_target['phi'], 'theta': 0, 'a': 0, 'b': 0}
+
+            print("[Grandmaster] ⚠️ 绝境，随机防守")
             return self._random_action()
 
         except Exception as e:
-            print(f"[NewAgent] 出错: {e}")
+            print(f"Error: {e}")
             return self._random_action()
