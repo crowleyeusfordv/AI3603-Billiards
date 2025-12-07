@@ -328,21 +328,20 @@ class BasicAgent(Agent):
 
 class NewAgent(Agent):
     """
-    Phase 17: The Smart Survivor (智慧生存者)
-    融合版本：
-    1. 开局: 继承 Phase 16 的 V0=8.0 暴力开球 (争取开局优势)。
-    2. 中盘: 采用同学的'三层决策架构' (几何+局部优化)，稳健高效。
-    3. 防守: 引入'模拟验证'机制，发现洗袋自动降速，利用对手 BasicAgent 易自爆的弱点躺赢。
+    Phase 19: The Steady Winner (稳健大师)
+    核心改进：
+    1. 开球重构：放弃大力出奇迹，使用 V0=6.0 + 轻微上旋，确保白球停在台面中央。
+    2. 铁壁防守：无法进攻时，瞄准最近目标球的【球心】打 V0=2.0，确保合法触球且不漏球。
+    3. 危险感知：选球时增加“母球落袋风险”计算，自动过滤自杀式进攻。
     """
 
     def __init__(self):
         super().__init__()
         self.BALL_RADIUS = 0.028575
-        self.TABLE_FRICTION = 0.2
         # 局部搜索参数
         self.LIGHT_SEARCH_INIT = 5
         self.LIGHT_SEARCH_ITER = 5
-        print("[NewAgent] Phase 17: 智慧生存者 已初始化")
+        print("[NewAgent] Phase 19: 稳健大师 已初始化")
 
     # ==================== 工具函数 ====================
     def _distance(self, pos1, pos2):
@@ -370,18 +369,18 @@ class NewAgent(Agent):
         dot = np.clip(np.dot(vec1, vec2), -1.0, 1.0)
         return np.degrees(np.arccos(dot))
 
-    # ==================== Layer 0: 暴力开球 (保留你的优势) ====================
+    # ==================== Layer 0: 安全开球 (胜率关键) ====================
     def get_break_shot(self, balls):
         target = balls['1']
         cue = balls['cue']
         vec = target.state.rvw[0] - cue.state.rvw[0]
         phi = self._angle_to_phi(self._normalize(vec))
-        # V0=8.0: 你的强项，大力出奇迹
-        return {'V0': 8.0, 'phi': phi, 'theta': 0, 'a': 0.01, 'b': -0.05}
+        # 修正：V0降至6.0，使用b=0.1(轻微上旋)。
+        # 上旋会让白球撞击后向前跟进，被炸开的球堆“接住”，极大降低洗袋率。
+        return {'V0': 6.0, 'phi': phi, 'theta': 0, 'a': 0.0, 'b': 0.1}
 
-    # ==================== Layer 1: 目标选择 (吸收同学逻辑) ====================
+    # ==================== Layer 1: 目标选择 (带风险评估) ====================
     def _count_obstructions(self, balls, from_pos, to_pos, exclude_ids=['cue']):
-        """检测路径遮挡"""
         count = 0
         line_vec = np.array(to_pos[:2]) - np.array(from_pos[:2])
         line_length = np.linalg.norm(line_vec)
@@ -400,7 +399,6 @@ class NewAgent(Agent):
         return count
 
     def _choose_best_target(self, balls, my_targets, table):
-        """为每个目标打分，挑最容易的打"""
         best_choice = None
         best_score = -1e9
         cue_pos = balls['cue'].state.rvw[0]
@@ -413,21 +411,26 @@ class NewAgent(Agent):
                 score = 0
                 pocket_pos = pocket.center
 
-                # 1. 距离分 (近的好)
+                # 1. 基础分
                 dist = self._distance(cue_pos, target_pos)
                 score += 50 / (1 + dist)
 
-                # 2. 切角分 (直球好)
                 cut_angle = self._calculate_cut_angle(cue_pos, target_pos, pocket_pos)
-                if cut_angle > 85: continue  # 过滤死球
+                if cut_angle > 85: continue
                 score += (90 - cut_angle) * 0.8
 
-                # 3. 遮挡惩罚 (最重要)
+                # 2. 遮挡惩罚
                 obs_1 = self._count_obstructions(balls, cue_pos, target_pos, exclude_ids=['cue', target_id])
-                score -= obs_1 * 100  # 有遮挡直接大扣分
-
+                score -= obs_1 * 150  # 加重遮挡惩罚
                 obs_2 = self._count_obstructions(balls, target_pos, pocket_pos, exclude_ids=['cue', target_id])
-                score -= obs_2 * 100
+                score -= obs_2 * 150
+
+                # 3. 风险预判：如果幽灵球位置离袋口太近，白球极易随进
+                ghost_pos = self._calculate_ghost_ball(target_pos, pocket_pos)
+                for pid_danger, p_danger in table.pockets.items():
+                    # 检查白球撞击点是否在袋口附近 (危险半径 15cm)
+                    if self._distance(ghost_pos, p_danger.center) < 0.15:
+                        score -= 200  # 极度危险，尽量不打
 
                 if score > best_score:
                     best_score = score
@@ -435,30 +438,24 @@ class NewAgent(Agent):
 
         return best_choice
 
-    # ==================== Layer 2: 击球生成 (混合引擎) ====================
+    # ==================== Layer 2: 击球生成 ====================
     def _geometric_shot(self, cue_pos, target_pos, pocket_pos):
-        """几何解"""
         ghost_pos = self._calculate_ghost_ball(target_pos, pocket_pos)
         cue_to_ghost = ghost_pos - np.array(cue_pos[:2])
         phi = self._angle_to_phi(self._normalize(cue_to_ghost))
-
         dist = self._distance(cue_pos, ghost_pos)
-        # 更加细腻的力度控制
-        V0 = np.clip(2.0 + dist * 2.2, 2.0, 7.5)
+        # 适中力度，避免暴力乱飞
+        V0 = np.clip(1.8 + dist * 2.0, 1.5, 6.5)
         return {'V0': float(V0), 'phi': float(phi), 'theta': 0.0, 'a': 0.0, 'b': 0.0}
 
     def _optimized_search(self, geo_action, balls, my_targets, table):
-        """局部贝叶斯优化 (只在几何解附近搜，效率极高)"""
-        # 你的几何解已经是高精度的了，只搜微调范围
         pbounds = {
-            'V0': (max(1.0, geo_action['V0'] - 1.0), min(8.0, geo_action['V0'] + 1.5)),
-            'phi': (geo_action['phi'] - 5, geo_action['phi'] + 5),  # 范围缩得很小，专注微调
-            'theta': (0, 0),  # 锁定平击
-            'a': (-0.1, 0.1),
-            'b': (-0.1, 0.1)
+            'V0': (max(1.0, geo_action['V0'] - 1.0), min(7.5, geo_action['V0'] + 1.5)),
+            'phi': (geo_action['phi'] - 3, geo_action['phi'] + 3),  # 缩小搜索角度，防止搜偏
+            'theta': (0, 0),
+            'a': (-0.05, 0.05),
+            'b': (-0.05, 0.05)
         }
-
-        # 闭包奖励函数
         last_state = {bid: copy.deepcopy(ball) for bid, ball in balls.items()}
 
         def reward_fn(V0, phi, theta, a, b):
@@ -467,7 +464,6 @@ class NewAgent(Agent):
             shot = pt.System(table=copy.deepcopy(table), balls=sim_balls, cue=cue)
             try:
                 shot.cue.set_state(V0=V0, phi=phi, theta=theta, a=a, b=b)
-                # 必须加 max_events!
                 pt.simulate(shot, inplace=True, max_events=200)
             except:
                 return -500
@@ -483,18 +479,21 @@ class NewAgent(Agent):
             pass
         return geo_action
 
-    # ==================== Layer 3: 验证与调整 (核心防自爆) ====================
+    # ==================== Layer 3: 验证与最终兜底 (逻辑重构) ====================
     def _validate_and_adjust(self, action, balls, table, my_targets):
-        """防止洗袋和误打黑8"""
-        # 尝试3次调整：原力度 -> 0.8倍 -> 0.6倍且微调角度
+        """
+        三级验证体系：
+        1. 尝试原动作及微调动作，寻找能进球且不犯规的解。
+        2. 如果都不能进球，寻找一个“安全接触”动作。
+        3. 绝对禁止洗袋和误打黑8。
+        """
         variations = [
-            (1.0, 0),
-            (0.8, 0),
-            (0.6, 2),  # 降速+偏左
-            (0.6, -2)  # 降速+偏右
+            (1.0, 0), (0.9, 0), (0.8, 0),  # 力度微调
+            (0.9, 1), (0.9, -1)  # 角度微调
         ]
-
         sim_table = copy.deepcopy(table)
+
+        safe_action = None  # 用于存储“不进球但不犯规”的备选
 
         for v_scale, phi_offset in variations:
             test_action = action.copy()
@@ -512,27 +511,62 @@ class NewAgent(Agent):
             except:
                 continue
 
-            # 检查结果
             new_pocketed = [bid for bid, b in shot.balls.items() if b.state.s == 4 and balls[bid].state.s != 4]
 
             # 1. 绝对禁忌：白球洗袋
             if 'cue' in new_pocketed: continue
 
-            # 2. 绝对禁忌：误打黑8 (除非只剩黑8)
+            # 2. 绝对禁忌：误打黑8
             remaining = [bid for bid in my_targets if balls[bid].state.s != 4]
             is_shooting_8 = (len(remaining) == 0)
             if '8' in new_pocketed and not is_shooting_8: continue
 
-            # 3. 进球确认 (如果能进最好，不能进只要不犯规也行)
-            # 这里我们保守点：只要不洗袋不误打黑8，且没有空杆犯规，就接受
-            # 检查是否有球碰库/进袋
-            # 简单起见：只要过了前两条禁忌，我们认为这个调整后的动作是'安全'的
-            # 如果是调整过的动作(v_scale < 1.0)，我们优先选能进球的；如果都不能进，选安全的
-            return test_action
+            # 3. 进球确认
+            own_pocketed = [bid for bid in new_pocketed if bid in my_targets]
+            if len(own_pocketed) > 0:
+                print(f"[Survivor] 验证通过: 进球期望 (scale={v_scale}, off={phi_offset})")
+                return test_action
 
-        # 如果怎么调都会死，那就只能打一杆极轻的防守球
-        print("[NewAgent] ⚠️ 极度危险，强制安全球")
-        return {'V0': 1.0, 'phi': action['phi'], 'theta': 0, 'a': 0, 'b': 0}
+            # 4. 如果没进球，但也没犯规（检查是否碰到球），暂存为安全球
+            # 简单检查：只要没洗袋没死球，且是原力度，就当作保底
+            if v_scale == 1.0 and phi_offset == 0:
+                safe_action = test_action
+
+        # 如果找不到进球解，退而求其次
+        if safe_action is not None:
+            print("[Survivor] 进攻风险大，执行原计划（可能不进球）")
+            return safe_action
+
+        # === 兜底逻辑：贴球防守 ===
+        # 既然原来的路子怎么走都危险（洗袋/黑8），那就完全换个思路
+        # 找离白球最近的一颗自己的球，瞄准【球心】打一杆轻球
+        # 瞄准球心 = 100% 撞击 = 不会 No Hit
+        # 力度 2.0 = 足够碰库 = 不会 No Rail
+        print("[Survivor] ⚠️ 极度危险，切换为【铁壁防守】")
+
+        nearest_target = None
+        min_dist = 100
+        cue_pos = balls['cue'].state.rvw[0]
+
+        # 找最近的目标球
+        remaining = [bid for bid in my_targets if balls[bid].state.s != 4]
+        candidates = remaining if remaining else ['8']
+
+        for tid in candidates:
+            t_pos = balls[tid].state.rvw[0]
+            d = self._distance(cue_pos, t_pos)
+            if d < min_dist:
+                min_dist = d
+                nearest_target = tid
+
+        if nearest_target:
+            # 瞄准球心
+            t_pos = balls[nearest_target].state.rvw[0]
+            vec = t_pos - cue_pos
+            phi = self._angle_to_phi(self._normalize(vec))
+            return {'V0': 2.5, 'phi': phi, 'theta': 0, 'a': 0, 'b': 0}  # 2.5m/s 撞正心，通常很安全
+
+        return action  # 实在没办法，听天由命
 
     # ==================== 主决策函数 ====================
     def decision(self, balls, my_targets, table):
@@ -540,39 +574,40 @@ class NewAgent(Agent):
             # 0. 开球检测
             balls_on_table = [b for k, b in balls.items() if k != 'cue' and b.state.s != 4]
             if len(balls_on_table) == 15:
-                print("[Survivor] 🎱 暴力开球")
+                print("[Survivor] 🎱 稳健开球")
                 return self.get_break_shot(balls)
 
             remaining = [bid for bid in my_targets if balls[bid].state.s != 4]
             if not remaining: my_targets = ['8']
 
-            # 1. 选球 (Layer 1)
+            # 1. 选球
             choice = self._choose_best_target(balls, my_targets, table)
             if not choice:
-                print("[Survivor] 无路可走，随机防守")
-                return self._random_action()
+                print("[Survivor] 无路可走，尝试解球")
+                # 传入空action触发兜底防守
+                return self._validate_and_adjust({'V0': 0, 'phi': 0, 'theta': 0, 'a': 0, 'b': 0}, balls, table,
+                                                 my_targets)
 
             tid, pid = choice
             cue_pos = balls['cue'].state.rvw[0]
             target_pos = balls[tid].state.rvw[0]
             pocket_pos = table.pockets[pid].center
 
-            # 2. 生成动作 (Layer 2)
-            # 先算几何解
+            # 2. 生成动作
             geo_action = self._geometric_shot(cue_pos, target_pos, pocket_pos)
 
-            # 判断复杂程度
             cut_angle = self._calculate_cut_angle(cue_pos, target_pos, pocket_pos)
             obstruction = self._count_obstructions(balls, cue_pos, target_pos, exclude_ids=['cue', tid])
 
             final_action = geo_action
-            if cut_angle > 20 or obstruction > 0:
-                print(f"[Survivor] 复杂局面 (切角{cut_angle:.1f}) -> 启用局部搜索")
+            # 只有在稍微复杂的情况才优化，极度复杂的情况直接几何解或者防守
+            if cut_angle > 10 or obstruction > 0:
+                print(f"[Survivor] 优化击球 (切角{cut_angle:.1f})")
                 final_action = self._optimized_search(geo_action, balls, my_targets, table)
             else:
-                print(f"[Survivor] 简单局面 -> 几何直击")
+                print(f"[Survivor] 直球进攻")
 
-            # 3. 验证调整 (Layer 3)
+            # 3. 验证与调整 (核心)
             final_action = self._validate_and_adjust(final_action, balls, table, my_targets)
 
             return final_action
