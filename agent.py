@@ -469,7 +469,7 @@ class NewAgent(Agent):
 
     def _optimized_search(self, geo_action, balls, my_targets, table, original_targets):
         """
-        改进：在reward函数中增加黑8误打检测
+        改进：在reward函数中增加黑8误打检测 + 死锁检测
         """
         pbounds = {
             'V0': (max(1.0, geo_action['V0'] - 1.0), min(7.5, geo_action['V0'] + 1.5)),
@@ -479,8 +479,6 @@ class NewAgent(Agent):
             'b': (-0.05, 0.05)
         }
         last_state = {bid: copy.deepcopy(ball) for bid, ball in balls.items()}
-
-        # 🔥 修复：检查是否可以打黑8
         can_shoot_8 = self._check_can_shoot_8(balls, original_targets)
 
         def reward_fn(V0, phi, theta, a, b):
@@ -489,24 +487,36 @@ class NewAgent(Agent):
             shot = pt.System(table=copy.deepcopy(table), balls=sim_balls, cue=cue)
             try:
                 shot.cue.set_state(V0=V0, phi=phi, theta=theta, a=a, b=b)
+                # Agent 内部模拟限制 200 步
                 pt.simulate(shot, inplace=True, max_events=200)
             except:
                 return -500
 
-            # 🔥 第二重保护：在reward计算中检测黑8误打
+            # === 🔥 新增：死锁/未完成检测 ===
+            # 如果球在 200 步后仍未静止(state!=0)且未进袋(state!=4)，说明该动作会导致环境死锁
+            is_stuck = False
+            for ball in shot.balls.values():
+                if ball.state.s not in [0, 4]:  # 0:Stationary, 4:Pocketed
+                    is_stuck = True
+                    break
+            if is_stuck:
+                # 给予极大惩罚，确保贝叶斯优化器避开这个参数区域
+                return -2000
+                # =================================
+
+            # 第二重保护：在reward计算中检测黑8误打
             new_pocketed = [bid for bid, b in shot.balls.items()
                             if b.state.s == 4 and last_state[bid].state.s != 4]
 
             if '8' in new_pocketed and not can_shoot_8:
-                print(f"[Protector] ⚠️ 优化器检测到黑8误打，给予极大惩罚")
-                return -1000  # 极大惩罚，确保优化器不会选择这类动作
+                return -1000
 
             return analyze_shot_for_reward(shot, last_state, my_targets)
 
         try:
             optimizer = BayesianOptimization(f=reward_fn, pbounds=pbounds, random_state=1, verbose=0)
             optimizer.maximize(init_points=self.LIGHT_SEARCH_INIT, n_iter=self.LIGHT_SEARCH_ITER)
-            if optimizer.max['target'] > 0:
+            if optimizer.max['target'] > -500:  # 确保不是惩罚分
                 p = optimizer.max['params']
                 return {'V0': p['V0'], 'phi': p['phi'], 'theta': p['theta'], 'a': p['a'], 'b': p['b']}
         except:
@@ -516,7 +526,7 @@ class NewAgent(Agent):
     # ==================== Layer 3: 验证（第三重保护） ====================
     def _validate_and_adjust(self, action, balls, table, my_targets, original_targets):
         """
-        第三重保护：验证阶段再次检查黑8
+        第三重保护：验证阶段再次检查黑8 + 死锁检测
         """
         variations = [
             (1.0, 0), (0.9, 0), (0.8, 0),
@@ -524,8 +534,6 @@ class NewAgent(Agent):
         ]
         sim_table = copy.deepcopy(table)
         safe_action = None
-
-        # 🔥 修复：使用原始目标球判断
         can_shoot_8 = self._check_can_shoot_8(balls, original_targets)
 
         for v_scale, phi_offset in variations:
@@ -543,14 +551,23 @@ class NewAgent(Agent):
             except:
                 continue
 
+            # === 🔥 新增：死锁检测 ===
+            is_stuck = False
+            for ball in shot.balls.values():
+                if ball.state.s not in [0, 4]:
+                    is_stuck = True
+                    break
+            if is_stuck:
+                print(f"[Protector] ⚠️ 拦截死锁风险动作 (scale={v_scale}, off={phi_offset})")
+                continue
+            # ========================
+
             new_pocketed = [bid for bid, b in shot.balls.items() if b.state.s == 4 and balls[bid].state.s != 4]
 
             if 'cue' in new_pocketed:
                 continue
 
-            # 🔥 第三重保护：验证阶段最后防线
             if '8' in new_pocketed and not can_shoot_8:
-                print(f"[Protector] 🛡️ 验证阶段拦截黑8误打 (scale={v_scale}, off={phi_offset})")
                 continue
 
             own_pocketed = [bid for bid in new_pocketed if bid in my_targets]
@@ -562,17 +579,15 @@ class NewAgent(Agent):
                 safe_action = test_action
 
         if safe_action is not None:
-            print("[Protector] 保守执行原计划")
             return safe_action
 
         # === 兜底防守 ===
+        # ... (后续代码保持不变)
         print("[Protector] 🛡️ 启动防守模式")
-
         nearest_target = None
         min_dist = 100
         cue_pos = balls['cue'].state.rvw[0]
 
-        # 🔥 修复：防守时也要排除黑8（如果不能打）
         candidates = []
         for bid in my_targets:
             if bid == '8' and not can_shoot_8:
@@ -581,7 +596,6 @@ class NewAgent(Agent):
                 candidates.append(bid)
 
         if not candidates:
-            print("[Protector] ⚠️ 无合法目标球，尝试随机动作")
             return self._random_action()
 
         for tid in candidates:
@@ -595,7 +609,6 @@ class NewAgent(Agent):
             t_pos = balls[nearest_target].state.rvw[0]
             vec = t_pos - cue_pos
             phi = self._angle_to_phi(self._normalize(vec))
-            print(f"[Protector] 防守目标：{nearest_target}，距离：{min_dist:.2f}m")
             return {'V0': 2.5, 'phi': phi, 'theta': 0, 'a': 0, 'b': 0}
 
         return action
