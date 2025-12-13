@@ -24,7 +24,21 @@ import random
 
 from agent import Agent, BasicAgent, NewAgent
 
+from panda3d.core import loadPrcFileData
 
+# 1. 禁用音频
+loadPrcFileData("", "audio-library-name null")
+
+# 2. 强制显示标题栏
+loadPrcFileData("", "undecorated 0")
+
+# 3. 设置一个安全的、小于屏幕分辨率的尺寸
+# 千万不要设置超过 1920x1080，否则标题栏会再次跑丢
+loadPrcFileData("", "win-size 1800 1000")
+
+# 4. 设置窗口自动居中
+# Panda3D 的魔法数值：-2 -2 代表屏幕正中心
+loadPrcFileData("", "win-origin 200 150")
 def collect_ball_states(shot):
     """收集球状态信息
 
@@ -554,6 +568,6 @@ if __name__ == '__main__':
             # for i in range(len(env.shot_record)):
             #     pt.show(env.shot_record[i], title=f"hit count: {i}")
 
-            ## 观看整个过程 使用 p 和 n 控制 上一杆/ 下一杆
-            # pt.show(env.shot_record, title=f"all record")
+            # 观看整个过程 使用 p 和 n 控制 上一杆/ 下一杆
+            pt.show(env.shot_record, title=f"all record")
             break
