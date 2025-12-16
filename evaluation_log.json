@@ -8,20 +8,20 @@
   },
   "foul_stats": {
     "AGENT_A": {
-      "cue_pocket": 47,
-      "eight_illegal": 12,
-      "first_foul": 78,
-      "rail_foul": 0,
-      "no_hit": 12,
-      "total_shots": 658
+      "cue_pocket": 37,
+      "eight_illegal": 10,
+      "first_foul": 73,
+      "rail_foul": 1,
+      "no_hit": 14,
+      "total_shots": 638
     },
     "AGENT_B": {
-      "cue_pocket": 32,
+      "cue_pocket": 27,
       "eight_illegal": 4,
-      "first_foul": 11,
-      "rail_foul": 1,
-      "no_hit": 12,
-      "total_shots": 809
+      "first_foul": 14,
+      "rail_foul": 0,
+      "no_hit": 8,
+      "total_shots": 790
     }
   },
   "game_logs": [
@@ -30,34 +30,18 @@
       "player_a_agent": "BasicAgent",
       "player_b_agent": "NewAgent",
       "player_a_ball_type": "solid",
-      "shots": 36,
+      "shots": 28,
       "fouls": [
-        {
-          "shot": 1,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
         {
           "shot": 2,
           "player": "B",
           "agent": "AGENT_B",
           "types": [
-            "白球进袋"
+            "首球犯规"
           ]
         },
         {
-          "shot": 3,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "未击中"
-          ]
-        },
-        {
-          "shot": 6,
+          "shot": 8,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
@@ -65,23 +49,7 @@
           ]
         },
         {
-          "shot": 10,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 14,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 15,
+          "shot": 26,
           "player": "B",
           "agent": "AGENT_B",
           "types": [
@@ -89,65 +57,25 @@
           ]
         },
         {
-          "shot": 16,
+          "shot": 28,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 18,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 27,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
+            "未击中"
           ]
         }
       ],
-      "winner": "A"
+      "winner": "B"
     },
     {
       "game_id": 1,
       "player_a_agent": "NewAgent",
       "player_b_agent": "BasicAgent",
       "player_a_ball_type": "solid",
-      "shots": 31,
+      "shots": 30,
       "fouls": [
         {
-          "shot": 3,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 13,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 16,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 21,
+          "shot": 2,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
@@ -162,30 +90,30 @@
       "player_a_agent": "BasicAgent",
       "player_b_agent": "NewAgent",
       "player_a_ball_type": "stripe",
-      "shots": 14,
+      "shots": 23,
       "fouls": [
         {
-          "shot": 4,
-          "player": "B",
-          "agent": "AGENT_B",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 12,
+          "shot": 1,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
-            "白球进袋"
+            "首球犯规"
           ]
         },
         {
-          "shot": 14,
+          "shot": 10,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
-            "误打黑8"
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 15,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
           ]
         }
       ],
@@ -196,34 +124,18 @@
       "player_a_agent": "NewAgent",
       "player_b_agent": "BasicAgent",
       "player_a_ball_type": "stripe",
-      "shots": 29,
+      "shots": 11,
       "fouls": [
         {
-          "shot": 13,
-          "player": "B",
-          "agent": "AGENT_A",
+          "shot": 3,
+          "player": "A",
+          "agent": "AGENT_B",
           "types": [
             "首球犯规"
           ]
         },
         {
-          "shot": 20,
-          "player": "A",
-          "agent": "AGENT_B",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 21,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 29,
+          "shot": 11,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
@@ -238,30 +150,14 @@
       "player_a_agent": "BasicAgent",
       "player_b_agent": "NewAgent",
       "player_a_ball_type": "solid",
-      "shots": 15,
+      "shots": 10,
       "fouls": [
         {
-          "shot": 3,
-          "player": "B",
-          "agent": "AGENT_B",
+          "shot": 6,
+          "player": "A",
+          "agent": "AGENT_A",
           "types": [
             "白球进袋"
-          ]
-        },
-        {
-          "shot": 12,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 15,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "误打黑8"
           ]
         }
       ],
@@ -272,10 +168,10 @@
       "player_a_agent": "NewAgent",
       "player_b_agent": "BasicAgent",
       "player_a_ball_type": "solid",
-      "shots": 18,
+      "shots": 23,
       "fouls": [
         {
-          "shot": 5,
+          "shot": 3,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
@@ -283,19 +179,19 @@
           ]
         },
         {
-          "shot": 16,
+          "shot": 9,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "未击中"
+          ]
+        },
+        {
+          "shot": 21,
           "player": "A",
           "agent": "AGENT_B",
           "types": [
             "白球进袋"
-          ]
-        },
-        {
-          "shot": 17,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
           ]
         }
       ],
@@ -306,131 +202,7 @@
       "player_a_agent": "BasicAgent",
       "player_b_agent": "NewAgent",
       "player_a_ball_type": "stripe",
-      "shots": 21,
-      "fouls": [
-        {
-          "shot": 1,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 4,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 12,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "未击中"
-          ]
-        }
-      ],
-      "winner": "B"
-    },
-    {
-      "game_id": 7,
-      "player_a_agent": "NewAgent",
-      "player_b_agent": "BasicAgent",
-      "player_a_ball_type": "stripe",
-      "shots": 45,
-      "fouls": [
-        {
-          "shot": 8,
-          "player": "A",
-          "agent": "AGENT_B",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 9,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 10,
-          "player": "A",
-          "agent": "AGENT_B",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 16,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 19,
-          "player": "A",
-          "agent": "AGENT_B",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 23,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 30,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 33,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 38,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 41,
-          "player": "A",
-          "agent": "AGENT_B",
-          "types": [
-            "未击中"
-          ]
-        }
-      ],
-      "winner": "B"
-    },
-    {
-      "game_id": 8,
-      "player_a_agent": "BasicAgent",
-      "player_b_agent": "NewAgent",
-      "player_a_ball_type": "solid",
-      "shots": 34,
+      "shots": 28,
       "fouls": [
         {
           "shot": 3,
@@ -441,7 +213,83 @@
           ]
         },
         {
-          "shot": 7,
+          "shot": 11,
+          "player": "B",
+          "agent": "AGENT_B",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 15,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 24,
+          "player": "B",
+          "agent": "AGENT_B",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 26,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
+          ]
+        }
+      ],
+      "winner": "B"
+    },
+    {
+      "game_id": 7,
+      "player_a_agent": "NewAgent",
+      "player_b_agent": "BasicAgent",
+      "player_a_ball_type": "stripe",
+      "shots": 8,
+      "fouls": [
+        {
+          "shot": 1,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 8,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "误打黑8"
+          ]
+        }
+      ],
+      "winner": "A"
+    },
+    {
+      "game_id": 8,
+      "player_a_agent": "BasicAgent",
+      "player_b_agent": "NewAgent",
+      "player_a_ball_type": "solid",
+      "shots": 27,
+      "fouls": [
+        {
+          "shot": 1,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 3,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
@@ -449,7 +297,7 @@
           ]
         },
         {
-          "shot": 10,
+          "shot": 5,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
@@ -465,7 +313,15 @@
           ]
         },
         {
-          "shot": 27,
+          "shot": 18,
+          "player": "B",
+          "agent": "AGENT_B",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 26,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
@@ -480,34 +336,10 @@
       "player_a_agent": "NewAgent",
       "player_b_agent": "BasicAgent",
       "player_a_ball_type": "solid",
-      "shots": 22,
+      "shots": 19,
       "fouls": [
         {
-          "shot": 3,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 10,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
           "shot": 15,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 21,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
@@ -522,14 +354,38 @@
       "player_a_agent": "BasicAgent",
       "player_b_agent": "NewAgent",
       "player_a_ball_type": "stripe",
-      "shots": 22,
+      "shots": 26,
       "fouls": [
         {
-          "shot": 22,
+          "shot": 2,
+          "player": "B",
+          "agent": "AGENT_B",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 3,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
-            "白球进袋"
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 8,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 19,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
           ]
         }
       ],
@@ -540,10 +396,45 @@
       "player_a_agent": "NewAgent",
       "player_b_agent": "BasicAgent",
       "player_a_ball_type": "stripe",
-      "shots": 29,
+      "shots": 23,
       "fouls": [
         {
-          "shot": 3,
+          "shot": 19,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "未击中"
+          ]
+        },
+        {
+          "shot": 21,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "首球犯规"
+          ]
+        }
+      ],
+      "winner": "A"
+    },
+    {
+      "game_id": 12,
+      "player_a_agent": "BasicAgent",
+      "player_b_agent": "NewAgent",
+      "player_a_ball_type": "solid",
+      "shots": 23,
+      "fouls": [],
+      "winner": "A"
+    },
+    {
+      "game_id": 13,
+      "player_a_agent": "NewAgent",
+      "player_b_agent": "BasicAgent",
+      "player_a_ball_type": "solid",
+      "shots": 28,
+      "fouls": [
+        {
+          "shot": 8,
           "player": "A",
           "agent": "AGENT_B",
           "types": [
@@ -551,23 +442,75 @@
           ]
         },
         {
+          "shot": 15,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 17,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 28,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
+          ]
+        }
+      ],
+      "winner": "A"
+    },
+    {
+      "game_id": 14,
+      "player_a_agent": "BasicAgent",
+      "player_b_agent": "NewAgent",
+      "player_a_ball_type": "stripe",
+      "shots": 1,
+      "fouls": [
+        {
+          "shot": 1,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "误打黑8"
+          ]
+        }
+      ],
+      "winner": "B"
+    },
+    {
+      "game_id": 15,
+      "player_a_agent": "NewAgent",
+      "player_b_agent": "BasicAgent",
+      "player_a_ball_type": "stripe",
+      "shots": 24,
+      "fouls": [
+        {
+          "shot": 5,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
           "shot": 16,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
-            "首球犯规"
+            "未击中"
           ]
         },
         {
-          "shot": 20,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 23,
+          "shot": 21,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
@@ -579,193 +522,55 @@
           "player": "A",
           "agent": "AGENT_B",
           "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 29,
-          "player": "A",
-          "agent": "AGENT_B",
-          "types": [
-            "白球进袋",
             "误打黑8"
           ]
         }
       ],
       "winner": "B"
-    },
-    {
-      "game_id": 12,
-      "player_a_agent": "BasicAgent",
-      "player_b_agent": "NewAgent",
-      "player_a_ball_type": "solid",
-      "shots": 26,
-      "fouls": [
-        {
-          "shot": 1,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 2,
-          "player": "B",
-          "agent": "AGENT_B",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 13,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 18,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        }
-      ],
-      "winner": "B"
-    },
-    {
-      "game_id": 13,
-      "player_a_agent": "NewAgent",
-      "player_b_agent": "BasicAgent",
-      "player_a_ball_type": "solid",
-      "shots": 24,
-      "fouls": [
-        {
-          "shot": 2,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 12,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 23,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "未击中"
-          ]
-        }
-      ],
-      "winner": "A"
-    },
-    {
-      "game_id": 14,
-      "player_a_agent": "BasicAgent",
-      "player_b_agent": "NewAgent",
-      "player_a_ball_type": "stripe",
-      "shots": 25,
-      "fouls": [
-        {
-          "shot": 5,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 7,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 14,
-          "player": "B",
-          "agent": "AGENT_B",
-          "types": [
-            "未击中"
-          ]
-        },
-        {
-          "shot": 20,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        }
-      ],
-      "winner": "B"
-    },
-    {
-      "game_id": 15,
-      "player_a_agent": "NewAgent",
-      "player_b_agent": "BasicAgent",
-      "player_a_ball_type": "stripe",
-      "shots": 5,
-      "fouls": [
-        {
-          "shot": 3,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 5,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋",
-            "误打黑8"
-          ]
-        }
-      ],
-      "winner": "A"
     },
     {
       "game_id": 16,
       "player_a_agent": "BasicAgent",
       "player_b_agent": "NewAgent",
       "player_a_ball_type": "solid",
-      "shots": 18,
+      "shots": 21,
       "fouls": [
         {
-          "shot": 18,
-          "player": "B",
-          "agent": "AGENT_B",
+          "shot": 14,
+          "player": "A",
+          "agent": "AGENT_A",
           "types": [
-            "误打黑8"
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 21,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "未击中"
           ]
         }
       ],
-      "winner": "A"
+      "winner": "B"
     },
     {
       "game_id": 17,
       "player_a_agent": "NewAgent",
       "player_b_agent": "BasicAgent",
       "player_a_ball_type": "solid",
-      "shots": 36,
+      "shots": 16,
       "fouls": [
         {
-          "shot": 1,
+          "shot": 3,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 4,
           "player": "A",
           "agent": "AGENT_B",
           "types": [
@@ -773,7 +578,7 @@
           ]
         },
         {
-          "shot": 4,
+          "shot": 6,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
@@ -781,23 +586,7 @@
           ]
         },
         {
-          "shot": 18,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 25,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 27,
+          "shot": 9,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
@@ -805,19 +594,19 @@
           ]
         },
         {
-          "shot": 29,
+          "shot": 11,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
-            "未击中"
+            "首球犯规"
           ]
         },
         {
-          "shot": 31,
+          "shot": 16,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
-            "白球进袋"
+            "误打黑8"
           ]
         }
       ],
@@ -828,14 +617,30 @@
       "player_a_agent": "BasicAgent",
       "player_b_agent": "NewAgent",
       "player_a_ball_type": "stripe",
-      "shots": 25,
+      "shots": 30,
       "fouls": [
         {
-          "shot": 16,
+          "shot": 9,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
             "白球进袋"
+          ]
+        },
+        {
+          "shot": 20,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "未击中"
+          ]
+        },
+        {
+          "shot": 22,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
           ]
         }
       ],
@@ -846,10 +651,10 @@
       "player_a_agent": "NewAgent",
       "player_b_agent": "BasicAgent",
       "player_a_ball_type": "stripe",
-      "shots": 29,
+      "shots": 36,
       "fouls": [
         {
-          "shot": 7,
+          "shot": 19,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
@@ -857,37 +662,61 @@
           ]
         },
         {
-          "shot": 23,
+          "shot": 22,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 24,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 29,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 32,
           "player": "A",
           "agent": "AGENT_B",
           "types": [
             "白球进袋"
           ]
-        },
-        {
-          "shot": 25,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "未击中"
-          ]
         }
       ],
-      "winner": "A"
+      "winner": "B"
     },
     {
       "game_id": 20,
       "player_a_agent": "BasicAgent",
       "player_b_agent": "NewAgent",
       "player_a_ball_type": "solid",
-      "shots": 20,
+      "shots": 10,
       "fouls": [
         {
-          "shot": 18,
-          "player": "B",
-          "agent": "AGENT_B",
+          "shot": 1,
+          "player": "A",
+          "agent": "AGENT_A",
           "types": [
-            "首球犯规"
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 10,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "误打黑8"
           ]
         }
       ],
@@ -898,10 +727,114 @@
       "player_a_agent": "NewAgent",
       "player_b_agent": "BasicAgent",
       "player_a_ball_type": "solid",
-      "shots": 28,
+      "shots": 17,
       "fouls": [
         {
-          "shot": 5,
+          "shot": 3,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
+          ]
+        }
+      ],
+      "winner": "A"
+    },
+    {
+      "game_id": 22,
+      "player_a_agent": "BasicAgent",
+      "player_b_agent": "NewAgent",
+      "player_a_ball_type": "stripe",
+      "shots": 12,
+      "fouls": [
+        {
+          "shot": 12,
+          "player": "B",
+          "agent": "AGENT_B",
+          "types": [
+            "误打黑8"
+          ]
+        }
+      ],
+      "winner": "A"
+    },
+    {
+      "game_id": 23,
+      "player_a_agent": "NewAgent",
+      "player_b_agent": "BasicAgent",
+      "player_a_ball_type": "stripe",
+      "shots": 35,
+      "fouls": [
+        {
+          "shot": 6,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 13,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 29,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 31,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 33,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "白球进袋"
+          ]
+        }
+      ],
+      "winner": "A"
+    },
+    {
+      "game_id": 24,
+      "player_a_agent": "BasicAgent",
+      "player_b_agent": "NewAgent",
+      "player_a_ball_type": "solid",
+      "shots": 30,
+      "fouls": [
+        {
+          "shot": 14,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
+          ]
+        }
+      ],
+      "winner": "A"
+    },
+    {
+      "game_id": 25,
+      "player_a_agent": "NewAgent",
+      "player_b_agent": "BasicAgent",
+      "player_a_ball_type": "solid",
+      "shots": 23,
+      "fouls": [
+        {
+          "shot": 2,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
@@ -909,11 +842,87 @@
           ]
         },
         {
+          "shot": 11,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 17,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "白球进袋"
+          ]
+        }
+      ],
+      "winner": "A"
+    },
+    {
+      "game_id": 26,
+      "player_a_agent": "BasicAgent",
+      "player_b_agent": "NewAgent",
+      "player_a_ball_type": "stripe",
+      "shots": 33,
+      "fouls": [
+        {
+          "shot": 1,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 5,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 18,
+          "player": "B",
+          "agent": "AGENT_B",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 28,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        }
+      ],
+      "winner": "B"
+    },
+    {
+      "game_id": 27,
+      "player_a_agent": "NewAgent",
+      "player_b_agent": "BasicAgent",
+      "player_a_ball_type": "stripe",
+      "shots": 13,
+      "fouls": [
+        {
+          "shot": 2,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
           "shot": 7,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
-            "首球犯规"
+            "白球进袋"
           ]
         },
         {
@@ -926,56 +935,51 @@
         },
         {
           "shot": 13,
-          "player": "A",
-          "agent": "AGENT_B",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 16,
-          "player": "A",
-          "agent": "AGENT_B",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 22,
-          "player": "A",
-          "agent": "AGENT_B",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 23,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 24,
-          "player": "A",
-          "agent": "AGENT_B",
-          "types": [
-            "首球犯规"
+            "误打黑8"
           ]
         }
       ],
       "winner": "A"
     },
     {
-      "game_id": 22,
+      "game_id": 28,
+      "player_a_agent": "BasicAgent",
+      "player_b_agent": "NewAgent",
+      "player_a_ball_type": "solid",
+      "shots": 15,
+      "fouls": [
+        {
+          "shot": 15,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        }
+      ],
+      "winner": "B"
+    },
+    {
+      "game_id": 29,
+      "player_a_agent": "NewAgent",
+      "player_b_agent": "BasicAgent",
+      "player_a_ball_type": "solid",
+      "shots": 24,
+      "fouls": [],
+      "winner": "A"
+    },
+    {
+      "game_id": 30,
       "player_a_agent": "BasicAgent",
       "player_b_agent": "NewAgent",
       "player_a_ball_type": "stripe",
-      "shots": 24,
+      "shots": 27,
       "fouls": [
         {
-          "shot": 5,
+          "shot": 1,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
@@ -983,15 +987,15 @@
           ]
         },
         {
-          "shot": 7,
+          "shot": 9,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
-            "白球进袋"
+            "首球犯规"
           ]
         },
         {
-          "shot": 13,
+          "shot": 16,
           "player": "B",
           "agent": "AGENT_B",
           "types": [
@@ -1010,299 +1014,34 @@
       "winner": "B"
     },
     {
-      "game_id": 23,
+      "game_id": 31,
       "player_a_agent": "NewAgent",
       "player_b_agent": "BasicAgent",
-      "player_a_ball_type": "stripe",
-      "shots": 22,
-      "fouls": [
-        {
-          "shot": 2,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 22,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "误打黑8"
-          ]
-        }
-      ],
-      "winner": "A"
-    },
-    {
-      "game_id": 24,
-      "player_a_agent": "BasicAgent",
-      "player_b_agent": "NewAgent",
-      "player_a_ball_type": "solid",
-      "shots": 17,
-      "fouls": [
-        {
-          "shot": 17,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "误打黑8"
-          ]
-        }
-      ],
-      "winner": "B"
-    },
-    {
-      "game_id": 25,
-      "player_a_agent": "NewAgent",
-      "player_b_agent": "BasicAgent",
-      "player_a_ball_type": "solid",
-      "shots": 24,
-      "fouls": [
-        {
-          "shot": 3,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 14,
-          "player": "A",
-          "agent": "AGENT_B",
-          "types": [
-            "白球进袋"
-          ]
-        }
-      ],
-      "winner": "A"
-    },
-    {
-      "game_id": 26,
-      "player_a_agent": "BasicAgent",
-      "player_b_agent": "NewAgent",
-      "player_a_ball_type": "stripe",
-      "shots": 22,
-      "fouls": [
-        {
-          "shot": 1,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 3,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        }
-      ],
-      "winner": "B"
-    },
-    {
-      "game_id": 27,
-      "player_a_agent": "NewAgent",
-      "player_b_agent": "BasicAgent",
-      "player_a_ball_type": "stripe",
-      "shots": 23,
-      "fouls": [
-        {
-          "shot": 2,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 14,
-          "player": "A",
-          "agent": "AGENT_B",
-          "types": [
-            "未击中"
-          ]
-        },
-        {
-          "shot": 20,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 23,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "误打黑8"
-          ]
-        }
-      ],
-      "winner": "A"
-    },
-    {
-      "game_id": 28,
-      "player_a_agent": "BasicAgent",
-      "player_b_agent": "NewAgent",
-      "player_a_ball_type": "solid",
-      "shots": 18,
-      "fouls": [
-        {
-          "shot": 1,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 10,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 18,
-          "player": "B",
-          "agent": "AGENT_B",
-          "types": [
-            "白球进袋",
-            "误打黑8"
-          ]
-        }
-      ],
-      "winner": "A"
-    },
-    {
-      "game_id": 29,
-      "player_a_agent": "NewAgent",
-      "player_b_agent": "BasicAgent",
-      "player_a_ball_type": "solid",
-      "shots": 24,
-      "fouls": [
-        {
-          "shot": 3,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 7,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 11,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 18,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 20,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        }
-      ],
-      "winner": "A"
-    },
-    {
-      "game_id": 30,
-      "player_a_agent": "BasicAgent",
-      "player_b_agent": "NewAgent",
       "player_a_ball_type": "stripe",
       "shots": 29,
       "fouls": [
         {
           "shot": 1,
           "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 5,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 12,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 21,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        }
-      ],
-      "winner": "B"
-    },
-    {
-      "game_id": 31,
-      "player_a_agent": "NewAgent",
-      "player_b_agent": "BasicAgent",
-      "player_a_ball_type": "stripe",
-      "shots": 24,
-      "fouls": [
-        {
-          "shot": 2,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 11,
-          "player": "B",
-          "agent": "AGENT_A",
+          "agent": "AGENT_B",
           "types": [
             "白球进袋"
           ]
         },
         {
-          "shot": 24,
+          "shot": 2,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
             "未击中"
+          ]
+        },
+        {
+          "shot": 26,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
           ]
         }
       ],
@@ -1313,10 +1052,18 @@
       "player_a_agent": "BasicAgent",
       "player_b_agent": "NewAgent",
       "player_a_ball_type": "solid",
-      "shots": 0,
+      "shots": 10,
       "fouls": [
         {
-          "shot": 0,
+          "shot": 10,
+          "player": "B",
+          "agent": "AGENT_B",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 10,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
@@ -1331,14 +1078,62 @@
       "player_a_agent": "NewAgent",
       "player_b_agent": "BasicAgent",
       "player_a_ball_type": "solid",
-      "shots": 22,
+      "shots": 36,
       "fouls": [
         {
-          "shot": 9,
-          "player": "A",
-          "agent": "AGENT_B",
+          "shot": 2,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 4,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 12,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 21,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 24,
+          "player": "B",
+          "agent": "AGENT_A",
           "types": [
             "白球进袋"
+          ]
+        },
+        {
+          "shot": 29,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 34,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
           ]
         }
       ],
@@ -1349,7 +1144,267 @@
       "player_a_agent": "BasicAgent",
       "player_b_agent": "NewAgent",
       "player_a_ball_type": "stripe",
-      "shots": 34,
+      "shots": 37,
+      "fouls": [
+        {
+          "shot": 6,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 15,
+          "player": "B",
+          "agent": "AGENT_B",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 18,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 26,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 36,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "未击中"
+          ]
+        }
+      ],
+      "winner": "B"
+    },
+    {
+      "game_id": 35,
+      "player_a_agent": "NewAgent",
+      "player_b_agent": "BasicAgent",
+      "player_a_ball_type": "stripe",
+      "shots": 36,
+      "fouls": [
+        {
+          "shot": 8,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 28,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 31,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 32,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 33,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "未击中"
+          ]
+        }
+      ],
+      "winner": "A"
+    },
+    {
+      "game_id": 36,
+      "player_a_agent": "BasicAgent",
+      "player_b_agent": "NewAgent",
+      "player_a_ball_type": "solid",
+      "shots": 24,
+      "fouls": [
+        {
+          "shot": 1,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 17,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        }
+      ],
+      "winner": "B"
+    },
+    {
+      "game_id": 37,
+      "player_a_agent": "NewAgent",
+      "player_b_agent": "BasicAgent",
+      "player_a_ball_type": "solid",
+      "shots": 22,
+      "fouls": [
+        {
+          "shot": 3,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 18,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
+          ]
+        }
+      ],
+      "winner": "A"
+    },
+    {
+      "game_id": 38,
+      "player_a_agent": "BasicAgent",
+      "player_b_agent": "NewAgent",
+      "player_a_ball_type": "stripe",
+      "shots": 23,
+      "fouls": [
+        {
+          "shot": 20,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 22,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        }
+      ],
+      "winner": "B"
+    },
+    {
+      "game_id": 39,
+      "player_a_agent": "NewAgent",
+      "player_b_agent": "BasicAgent",
+      "player_a_ball_type": "stripe",
+      "shots": 36,
+      "fouls": [
+        {
+          "shot": 4,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "碰库犯规"
+          ]
+        },
+        {
+          "shot": 12,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 20,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "未击中"
+          ]
+        },
+        {
+          "shot": 22,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 23,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 24,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 28,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 29,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 34,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "未击中"
+          ]
+        }
+      ],
+      "winner": "A"
+    },
+    {
+      "game_id": 40,
+      "player_a_agent": "BasicAgent",
+      "player_b_agent": "NewAgent",
+      "player_a_ball_type": "solid",
+      "shots": 19,
       "fouls": [
         {
           "shot": 1,
@@ -1368,199 +1423,35 @@
           ]
         },
         {
-          "shot": 4,
-          "player": "B",
-          "agent": "AGENT_B",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 25,
-          "player": "B",
-          "agent": "AGENT_B",
-          "types": [
-            "未击中"
-          ]
-        },
-        {
-          "shot": 27,
-          "player": "B",
-          "agent": "AGENT_B",
-          "types": [
-            "首球犯规"
-          ]
-        }
-      ],
-      "winner": "B"
-    },
-    {
-      "game_id": 35,
-      "player_a_agent": "NewAgent",
-      "player_b_agent": "BasicAgent",
-      "player_a_ball_type": "stripe",
-      "shots": 32,
-      "fouls": [
-        {
-          "shot": 2,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
           "shot": 3,
           "player": "A",
-          "agent": "AGENT_B",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 17,
-          "player": "B",
           "agent": "AGENT_A",
           "types": [
             "首球犯规"
           ]
         },
-        {
-          "shot": 27,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        }
-      ],
-      "winner": "A"
-    },
-    {
-      "game_id": 36,
-      "player_a_agent": "BasicAgent",
-      "player_b_agent": "NewAgent",
-      "player_a_ball_type": "solid",
-      "shots": 25,
-      "fouls": [
-        {
-          "shot": 25,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        }
-      ],
-      "winner": "B"
-    },
-    {
-      "game_id": 37,
-      "player_a_agent": "NewAgent",
-      "player_b_agent": "BasicAgent",
-      "player_a_ball_type": "solid",
-      "shots": 21,
-      "fouls": [
-        {
-          "shot": 9,
-          "player": "A",
-          "agent": "AGENT_B",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 15,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        }
-      ],
-      "winner": "A"
-    },
-    {
-      "game_id": 38,
-      "player_a_agent": "BasicAgent",
-      "player_b_agent": "NewAgent",
-      "player_a_ball_type": "stripe",
-      "shots": 11,
-      "fouls": [
         {
           "shot": 5,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
+            "未击中"
+          ]
+        },
+        {
+          "shot": 8,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
             "首球犯规"
           ]
         },
         {
-          "shot": 9,
-          "player": "B",
-          "agent": "AGENT_B",
-          "types": [
-            "未击中"
-          ]
-        },
-        {
-          "shot": 11,
+          "shot": 12,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
-            "白球进袋"
-          ]
-        }
-      ],
-      "winner": "B"
-    },
-    {
-      "game_id": 39,
-      "player_a_agent": "NewAgent",
-      "player_b_agent": "BasicAgent",
-      "player_a_ball_type": "stripe",
-      "shots": 14,
-      "fouls": [
-        {
-          "shot": 13,
-          "player": "A",
-          "agent": "AGENT_B",
-          "types": [
-            "未击中"
-          ]
-        }
-      ],
-      "winner": "A"
-    },
-    {
-      "game_id": 40,
-      "player_a_agent": "BasicAgent",
-      "player_b_agent": "NewAgent",
-      "player_a_ball_type": "solid",
-      "shots": 26,
-      "fouls": [
-        {
-          "shot": 4,
-          "player": "B",
-          "agent": "AGENT_B",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 22,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 25,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
+            "首球犯规"
           ]
         }
       ],
@@ -1571,14 +1462,22 @@
       "player_a_agent": "NewAgent",
       "player_b_agent": "BasicAgent",
       "player_a_ball_type": "solid",
-      "shots": 20,
+      "shots": 6,
       "fouls": [
         {
-          "shot": 2,
+          "shot": 3,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
             "首球犯规"
+          ]
+        },
+        {
+          "shot": 6,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "误打黑8"
           ]
         }
       ],
@@ -1596,35 +1495,43 @@
           "player": "A",
           "agent": "AGENT_A",
           "types": [
-            "首球犯规"
+            "白球进袋"
           ]
         },
         {
-          "shot": 4,
+          "shot": 11,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
             "首球犯规"
+          ]
+        },
+        {
+          "shot": 14,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
           ]
         },
         {
           "shot": 15,
-          "player": "A",
-          "agent": "AGENT_A",
+          "player": "B",
+          "agent": "AGENT_B",
           "types": [
-            "白球进袋"
+            "首球犯规"
           ]
         },
         {
-          "shot": 20,
+          "shot": 21,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
-            "白球进袋"
+            "首球犯规"
           ]
         },
         {
-          "shot": 25,
+          "shot": 29,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
@@ -1639,33 +1546,8 @@
       "player_a_agent": "NewAgent",
       "player_b_agent": "BasicAgent",
       "player_a_ball_type": "stripe",
-      "shots": 30,
-      "fouls": [
-        {
-          "shot": 1,
-          "player": "A",
-          "agent": "AGENT_B",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 15,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "未击中"
-          ]
-        },
-        {
-          "shot": 20,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        }
-      ],
+      "shots": 21,
+      "fouls": [],
       "winner": "A"
     },
     {
@@ -1673,38 +1555,14 @@
       "player_a_agent": "BasicAgent",
       "player_b_agent": "NewAgent",
       "player_a_ball_type": "solid",
-      "shots": 21,
+      "shots": 32,
       "fouls": [
         {
-          "shot": 1,
+          "shot": 24,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
             "首球犯规"
-          ]
-        },
-        {
-          "shot": 2,
-          "player": "B",
-          "agent": "AGENT_B",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 15,
-          "player": "B",
-          "agent": "AGENT_B",
-          "types": [
-            "未击中"
-          ]
-        },
-        {
-          "shot": 20,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
           ]
         }
       ],
@@ -1715,38 +1573,22 @@
       "player_a_agent": "NewAgent",
       "player_b_agent": "BasicAgent",
       "player_a_ball_type": "solid",
-      "shots": 31,
+      "shots": 21,
       "fouls": [
         {
-          "shot": 8,
-          "player": "B",
-          "agent": "AGENT_A",
+          "shot": 9,
+          "player": "A",
+          "agent": "AGENT_B",
           "types": [
-            "首球犯规"
+            "白球进袋"
           ]
         },
         {
-          "shot": 14,
+          "shot": 11,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 20,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 24,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
+            "白球进袋"
           ]
         }
       ],
@@ -1757,10 +1599,10 @@
       "player_a_agent": "BasicAgent",
       "player_b_agent": "NewAgent",
       "player_a_ball_type": "stripe",
-      "shots": 25,
+      "shots": 24,
       "fouls": [
         {
-          "shot": 3,
+          "shot": 5,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
@@ -1768,7 +1610,31 @@
           ]
         },
         {
-          "shot": 17,
+          "shot": 9,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "未击中"
+          ]
+        },
+        {
+          "shot": 11,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 14,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 22,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
@@ -1783,7 +1649,7 @@
       "player_a_agent": "NewAgent",
       "player_b_agent": "BasicAgent",
       "player_a_ball_type": "stripe",
-      "shots": 21,
+      "shots": 33,
       "fouls": [
         {
           "shot": 1,
@@ -1794,83 +1660,7 @@
           ]
         },
         {
-          "shot": 4,
-          "player": "A",
-          "agent": "AGENT_B",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 21,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "误打黑8"
-          ]
-        }
-      ],
-      "winner": "A"
-    },
-    {
-      "game_id": 48,
-      "player_a_agent": "BasicAgent",
-      "player_b_agent": "NewAgent",
-      "player_a_ball_type": "solid",
-      "shots": 18,
-      "fouls": [
-        {
-          "shot": 2,
-          "player": "B",
-          "agent": "AGENT_B",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 15,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 17,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 18,
-          "player": "B",
-          "agent": "AGENT_B",
-          "types": [
-            "误打黑8"
-          ]
-        }
-      ],
-      "winner": "A"
-    },
-    {
-      "game_id": 49,
-      "player_a_agent": "NewAgent",
-      "player_b_agent": "BasicAgent",
-      "player_a_ball_type": "solid",
-      "shots": 16,
-      "fouls": [
-        {
-          "shot": 1,
-          "player": "A",
-          "agent": "AGENT_B",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 13,
+          "shot": 9,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
@@ -1878,9 +1668,93 @@
           ]
         },
         {
-          "shot": 16,
+          "shot": 20,
           "player": "B",
           "agent": "AGENT_A",
+          "types": [
+            "未击中"
+          ]
+        },
+        {
+          "shot": 27,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 32,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "未击中"
+          ]
+        }
+      ],
+      "winner": "B"
+    },
+    {
+      "game_id": 48,
+      "player_a_agent": "BasicAgent",
+      "player_b_agent": "NewAgent",
+      "player_a_ball_type": "solid",
+      "shots": 17,
+      "fouls": [],
+      "winner": "B"
+    },
+    {
+      "game_id": 49,
+      "player_a_agent": "NewAgent",
+      "player_b_agent": "BasicAgent",
+      "player_a_ball_type": "solid",
+      "shots": 20,
+      "fouls": [],
+      "winner": "A"
+    },
+    {
+      "game_id": 50,
+      "player_a_agent": "BasicAgent",
+      "player_b_agent": "NewAgent",
+      "player_a_ball_type": "stripe",
+      "shots": 27,
+      "fouls": [
+        {
+          "shot": 9,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 11,
+          "player": "B",
+          "agent": "AGENT_B",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 14,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 23,
+          "player": "A",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 27,
+          "player": "B",
+          "agent": "AGENT_B",
           "types": [
             "误打黑8"
           ]
@@ -1889,14 +1763,56 @@
       "winner": "A"
     },
     {
-      "game_id": 50,
-      "player_a_agent": "BasicAgent",
-      "player_b_agent": "NewAgent",
+      "game_id": 51,
+      "player_a_agent": "NewAgent",
+      "player_b_agent": "BasicAgent",
       "player_a_ball_type": "stripe",
-      "shots": 19,
+      "shots": 38,
       "fouls": [
         {
-          "shot": 5,
+          "shot": 12,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 15,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 32,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 38,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "未击中"
+          ]
+        }
+      ],
+      "winner": "A"
+    },
+    {
+      "game_id": 52,
+      "player_a_agent": "BasicAgent",
+      "player_b_agent": "NewAgent",
+      "player_a_ball_type": "solid",
+      "shots": 12,
+      "fouls": [
+        {
+          "shot": 1,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
@@ -1904,11 +1820,11 @@
           ]
         },
         {
-          "shot": 6,
+          "shot": 2,
           "player": "B",
           "agent": "AGENT_B",
           "types": [
-            "碰库犯规"
+            "白球进袋"
           ]
         },
         {
@@ -1920,133 +1836,26 @@
           ]
         },
         {
-          "shot": 9,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 13,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 15,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        }
-      ],
-      "winner": "B"
-    },
-    {
-      "game_id": 51,
-      "player_a_agent": "NewAgent",
-      "player_b_agent": "BasicAgent",
-      "player_a_ball_type": "stripe",
-      "shots": 37,
-      "fouls": [
-        {
-          "shot": 11,
+          "shot": 12,
           "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 17,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 25,
-          "player": "A",
           "agent": "AGENT_B",
           "types": [
-            "未击中"
-          ]
-        },
-        {
-          "shot": 35,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
+            "白球进袋",
+            "误打黑8"
           ]
         }
       ],
       "winner": "A"
     },
     {
-      "game_id": 52,
-      "player_a_agent": "BasicAgent",
-      "player_b_agent": "NewAgent",
-      "player_a_ball_type": "solid",
-      "shots": 18,
-      "fouls": [
-        {
-          "shot": 1,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 2,
-          "player": "B",
-          "agent": "AGENT_B",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 15,
-          "player": "B",
-          "agent": "AGENT_B",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 18,
-          "player": "B",
-          "agent": "AGENT_B",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 18,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "误打黑8"
-          ]
-        }
-      ],
-      "winner": "B"
-    },
-    {
       "game_id": 53,
       "player_a_agent": "NewAgent",
       "player_b_agent": "BasicAgent",
       "player_a_ball_type": "solid",
-      "shots": 13,
+      "shots": 24,
       "fouls": [
         {
-          "shot": 10,
+          "shot": 12,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
@@ -2054,11 +1863,27 @@
           ]
         },
         {
-          "shot": 13,
+          "shot": 15,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 16,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
-            "误打黑8"
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 19,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
           ]
         }
       ],
@@ -2069,34 +1894,26 @@
       "player_a_agent": "BasicAgent",
       "player_b_agent": "NewAgent",
       "player_a_ball_type": "stripe",
-      "shots": 20,
+      "shots": 25,
       "fouls": [
         {
-          "shot": 1,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 2,
+          "shot": 10,
           "player": "B",
           "agent": "AGENT_B",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 11,
-          "player": "A",
-          "agent": "AGENT_A",
           "types": [
             "未击中"
           ]
         },
         {
-          "shot": 16,
+          "shot": 12,
+          "player": "B",
+          "agent": "AGENT_B",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 23,
           "player": "B",
           "agent": "AGENT_B",
           "types": [
@@ -2111,8 +1928,73 @@
       "player_a_agent": "NewAgent",
       "player_b_agent": "BasicAgent",
       "player_a_ball_type": "stripe",
-      "shots": 20,
-      "fouls": [],
+      "shots": 27,
+      "fouls": [
+        {
+          "shot": 1,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 2,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 9,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 11,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 18,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 22,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 24,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        },
+        {
+          "shot": 26,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "首球犯规"
+          ]
+        }
+      ],
       "winner": "A"
     },
     {
@@ -2120,44 +2002,44 @@
       "player_a_agent": "BasicAgent",
       "player_b_agent": "NewAgent",
       "player_a_ball_type": "solid",
-      "shots": 24,
+      "shots": 20,
       "fouls": [
         {
-          "shot": 7,
+          "shot": 5,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
-            "白球进袋"
+            "首球犯规"
           ]
         },
         {
-          "shot": 10,
-          "player": "B",
-          "agent": "AGENT_B",
+          "shot": 8,
+          "player": "A",
+          "agent": "AGENT_A",
           "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 23,
-          "player": "B",
-          "agent": "AGENT_B",
-          "types": [
-            "未击中"
+            "首球犯规"
           ]
         }
       ],
-      "winner": "A"
+      "winner": "B"
     },
     {
       "game_id": 57,
       "player_a_agent": "NewAgent",
       "player_b_agent": "BasicAgent",
       "player_a_ball_type": "solid",
-      "shots": 18,
+      "shots": 4,
       "fouls": [
         {
-          "shot": 10,
+          "shot": 1,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 2,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
@@ -2165,11 +2047,11 @@
           ]
         },
         {
-          "shot": 17,
-          "player": "A",
-          "agent": "AGENT_B",
+          "shot": 4,
+          "player": "B",
+          "agent": "AGENT_A",
           "types": [
-            "首球犯规"
+            "误打黑8"
           ]
         }
       ],
@@ -2180,52 +2062,44 @@
       "player_a_agent": "BasicAgent",
       "player_b_agent": "NewAgent",
       "player_a_ball_type": "stripe",
-      "shots": 27,
+      "shots": 5,
       "fouls": [
         {
-          "shot": 1,
+          "shot": 5,
           "player": "A",
           "agent": "AGENT_A",
           "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 18,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "首球犯规"
-          ]
-        },
-        {
-          "shot": 21,
-          "player": "A",
-          "agent": "AGENT_A",
-          "types": [
-            "未击中"
-          ]
-        },
-        {
-          "shot": 25,
-          "player": "B",
-          "agent": "AGENT_B",
-          "types": [
-            "未击中"
+            "误打黑8"
           ]
         }
       ],
-      "winner": "A"
+      "winner": "B"
     },
     {
       "game_id": 59,
       "player_a_agent": "NewAgent",
       "player_b_agent": "BasicAgent",
       "player_a_ball_type": "stripe",
-      "shots": 32,
+      "shots": 33,
       "fouls": [
         {
-          "shot": 2,
+          "shot": 8,
+          "player": "A",
+          "agent": "AGENT_B",
+          "types": [
+            "白球进袋"
+          ]
+        },
+        {
+          "shot": 16,
+          "player": "B",
+          "agent": "AGENT_A",
+          "types": [
+            "未击中"
+          ]
+        },
+        {
+          "shot": 21,
           "player": "B",
           "agent": "AGENT_A",
           "types": [
@@ -2233,41 +2107,9 @@
           ]
         },
         {
-          "shot": 12,
+          "shot": 24,
           "player": "A",
           "agent": "AGENT_B",
-          "types": [
-            "未击中"
-          ]
-        },
-        {
-          "shot": 14,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 23,
-          "player": "A",
-          "agent": "AGENT_B",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 26,
-          "player": "B",
-          "agent": "AGENT_A",
-          "types": [
-            "白球进袋"
-          ]
-        },
-        {
-          "shot": 29,
-          "player": "B",
-          "agent": "AGENT_A",
           "types": [
             "未击中"
           ]

@@ -881,6 +881,10 @@ class NewAgent(Agent):
         self.BALL_RADIUS = 0.028575
         self.SEARCH_INIT = 12  # 降低搜索次数，提高质量
         self.SEARCH_ITER = 8
+
+        # a/b 仍允许全范围（与环境一致），这里只做参数裁剪/标准化
+        # 若需要更激进地压白球进袋，可再单独收紧该阈值
+        self.AB_LIMIT = 0.50
         
         self.noise_std = {
             'V0': 0.1, 'phi': 0.1, 'theta': 0.1, 
@@ -986,6 +990,18 @@ class NewAgent(Agent):
         
         return False, None
 
+    def _sanitize_action(self, action):
+        """标准化/裁剪动作参数，避免极端 a/b 导致的高风险出杆。"""
+        if action is None:
+            return None
+        out = dict(action)
+        out['V0'] = float(np.clip(out.get('V0', 2.5), 0.5, 8.0))
+        out['phi'] = float(out.get('phi', 0.0) % 360)
+        out['theta'] = float(np.clip(out.get('theta', 0.0), 0.0, 90.0))
+        out['a'] = float(np.clip(out.get('a', 0.0), -self.AB_LIMIT, self.AB_LIMIT))
+        out['b'] = float(np.clip(out.get('b', 0.0), -self.AB_LIMIT, self.AB_LIMIT))
+        return out
+
     # ========== 核心：全面安全检查（提高到10次） ==========
     def _is_action_safe(self, action, balls, table, valid_targets, simulations=10):
         """10次蒙特卡洛安全验证
@@ -997,6 +1013,10 @@ class NewAgent(Agent):
             bool: True=安全, False=危险
         """
         can_shoot_8 = ('8' in valid_targets)
+        action = self._sanitize_action(action)
+        # 环境侧 pt.simulate() 不限制 max_events。若这里过小，会漏掉“后续才发生”的黑8/白球进袋。
+        # 仅在“未清台(不能打8)”时提高上限，优先压制 eight_illegal。
+        base_max_events = 350 if (not can_shoot_8) else 250
         
         for i in range(simulations):
             # 1. 施加噪声
@@ -1015,7 +1035,7 @@ class NewAgent(Agent):
             
             try:
                 shot.cue.set_state(**noisy_action)
-                pt.simulate(shot, inplace=True, max_events=200)
+                pt.simulate(shot, inplace=True, max_events=base_max_events)
             except:
                 if self.debug_mode:
                     print(f"   [DEBUG] ⚠️ 第{i+1}次模拟失败（物理引擎错误）")
@@ -1063,6 +1083,51 @@ class NewAgent(Agent):
             print(f"   [DEBUG] ✅ 通过{simulations}次安全测试")
         return True
 
+    def _simulate_deterministic_once(self, action, balls, table, max_events=350):
+        """无噪声确定性仿真一次，用于快速判定“是否至少是合法且能碰到球”。"""
+        action = self._sanitize_action(action)
+        sim_balls = {k: copy.deepcopy(v) for k, v in balls.items()}
+        cue = pt.Cue(cue_ball_id="cue")
+        shot = pt.System(table=copy.deepcopy(table), balls=sim_balls, cue=cue)
+        shot.cue.set_state(**action)
+        pt.simulate(shot, inplace=True, max_events=max_events)
+        new_pocketed = [bid for bid, b in shot.balls.items() if b.state.s == 4 and balls[bid].state.s != 4]
+        return shot, new_pocketed
+
+    def _is_action_legal_deterministic(self, action, balls, table, valid_targets):
+        """确定性合法性检查：避免 no_hit / 首球犯规 / 白球进袋 / 误打黑8。"""
+        can_shoot_8 = ('8' in valid_targets)
+        try:
+            shot, new_pocketed = self._simulate_deterministic_once(action, balls, table, max_events=350)
+        except Exception:
+            return False
+
+        if 'cue' in new_pocketed:
+            return False
+        if '8' in new_pocketed and not can_shoot_8:
+            return False
+
+        is_legal, first_ball = self._check_first_contact(shot, valid_targets)
+        if not is_legal:
+            return False
+
+        # 若未进球，仍需满足“碰库”规则
+        if len(new_pocketed) == 0 and first_ball is not None:
+            cue_hit_cushion = False
+            target_hit_cushion = False
+            for e in shot.events:
+                et = str(e.event_type).lower()
+                ids = list(e.ids) if hasattr(e, 'ids') else []
+                if 'cushion' in et:
+                    if 'cue' in ids:
+                        cue_hit_cushion = True
+                    if first_ball in ids:
+                        target_hit_cushion = True
+            if not cue_hit_cushion and not target_hit_cushion:
+                return False
+
+        return True
+
     def _try_repair_action(self, action, balls, table, my_targets, safety_sims=8):
         """在动作不安全时，做小范围的(v0,phi)修补搜索，优先降低白球进袋/误打黑8/首球犯规风险。"""
         valid_targets, _ = self._get_valid_targets(balls, my_targets)
@@ -1073,19 +1138,18 @@ class NewAgent(Agent):
         v_scales = [0.95, 0.9, 0.85, 0.8, 0.75]
         phi_offsets = [0.0, 0.5, -0.5, 1.0, -1.0, 2.0, -2.0, 3.0, -3.0]
 
-        base = action.copy()
+        base = self._sanitize_action(action)
         # 额外保守：如果速度很大，先限制到6.5以内再尝试
         base['V0'] = float(np.clip(base.get('V0', 3.0), 0.5, 6.5))
-        base['phi'] = float(base.get('phi', 0.0) % 360)
-        base['theta'] = float(np.clip(base.get('theta', 0.0), 0.0, 90.0))
-        base['a'] = float(np.clip(base.get('a', 0.0), -0.5, 0.5))
-        base['b'] = float(np.clip(base.get('b', 0.0), -0.5, 0.5))
 
         for vs in v_scales:
             for dphi in phi_offsets:
                 cand = base.copy()
                 cand['V0'] = float(np.clip(base['V0'] * vs, 0.5, 8.0))
                 cand['phi'] = float((base['phi'] + dphi) % 360)
+                # 先过确定性合法性，避免把“根本碰不到球”的候选送进昂贵MC
+                if not self._is_action_legal_deterministic(cand, balls, table, valid_targets):
+                    continue
                 if self._is_action_safe(cand, balls, table, valid_targets, simulations=safety_sims):
                     return cand
         return None
@@ -1123,13 +1187,16 @@ class NewAgent(Agent):
                         'a': 0.0,
                         'b': 0.0,
                     }
+                    if not self._is_action_legal_deterministic(action, balls, table, valid_targets):
+                        continue
                     if self._is_action_safe(action, balls, table, valid_targets, simulations=safety_sims):
                         return action
         return None
 
     def _finalize_action(self, action, balls, table, my_targets, safety_sims=10):
         """统一出口：保证返回的动作尽可能安全；不安全则修补/兜底。"""
-        valid_targets, _ = self._get_valid_targets(balls, my_targets)
+        action = self._sanitize_action(action)
+        valid_targets, can_shoot_8 = self._get_valid_targets(balls, my_targets)
         if valid_targets and self._is_action_safe(action, balls, table, valid_targets, simulations=safety_sims):
             return action
 
@@ -1137,20 +1204,36 @@ class NewAgent(Agent):
         if repaired is not None:
             return repaired
 
-        fallback = self._find_any_safe_action(balls, table, my_targets, attempts=40, safety_sims=6)
+        fallback = self._find_any_safe_action(balls, table, my_targets, attempts=50, safety_sims=6)
         if fallback is not None:
             return fallback
 
-        # 最后兜底：返回原动作（避免死循环/超时）；这很少发生
+        # 放宽标准的最后一试：只在“允许打8”的收官阶段启用。
+        # 清台前放宽会显著抬高 eight_illegal（误打黑8）。
+        if can_shoot_8:
+            relaxed_sims = 3
+            if valid_targets and self._is_action_safe(action, balls, table, valid_targets, simulations=relaxed_sims):
+                return action
+
+            repaired_relaxed = self._try_repair_action(action, balls, table, my_targets, safety_sims=relaxed_sims)
+            if repaired_relaxed is not None:
+                return repaired_relaxed
+
+            fallback_relaxed = self._find_any_safe_action(balls, table, my_targets, attempts=70, safety_sims=relaxed_sims)
+            if fallback_relaxed is not None:
+                return fallback_relaxed
+
+        # 最后兜底：返回原动作（极少发生）
         return action
 
     # ========== 贝叶斯优化（提高惩罚） ==========
     def _optimized_search(self, geo_action, balls, my_targets, table):
         """贝叶斯优化 + 超严格惩罚"""
+        geo_action = self._sanitize_action(geo_action)
         pbounds = {
             'V0': (max(0.5, geo_action['V0'] - 1.5), min(8.0, geo_action['V0'] + 1.5)),
             'phi': (geo_action['phi'] - 3.0, geo_action['phi'] + 3.0),  # 扩大搜索范围
-            'theta': (0, 0), 'a': (-0.5, 0.5), 'b': (-0.5, 0.5)
+            'theta': (0, 0), 'a': (-self.AB_LIMIT, self.AB_LIMIT), 'b': (-self.AB_LIMIT, self.AB_LIMIT)
         }
         
         last_state = {bid: copy.deepcopy(ball) for bid, ball in balls.items()}
@@ -1161,6 +1244,9 @@ class NewAgent(Agent):
             return geo_action
 
         def reward_fn(V0, phi, theta, a, b):
+            # 与 finalize 的参数裁剪保持一致，减少“优化器学到高风险 a/b”的情况
+            a = float(np.clip(a, -self.AB_LIMIT, self.AB_LIMIT))
+            b = float(np.clip(b, -self.AB_LIMIT, self.AB_LIMIT))
             sim_balls = {bid: copy.deepcopy(ball) for bid, ball in balls.items()}
             cue = pt.Cue(cue_ball_id="cue")
             shot = pt.System(table=copy.deepcopy(table), balls=sim_balls, cue=cue)
@@ -1230,6 +1316,7 @@ class NewAgent(Agent):
     # ========== 验证阶段（强制三重检查）==========
     def _validate_and_adjust(self, action, balls, table, my_targets):
         """验证并微调（不允许跳过安全检查）"""
+        action = self._sanitize_action(action)
         valid_targets, can_shoot_8 = self._get_valid_targets(balls, my_targets)
         
         if not valid_targets:
@@ -1524,9 +1611,19 @@ class NewAgent(Agent):
             balls_on_table = [b for k, b in balls.items() 
                             if k != 'cue' and b.state.s != 4]
             if len(balls_on_table) == 15:
-                print("   [NewAgent] 🎱 开球")
-                action = self.get_break_shot_for_targets(balls, my_targets, table)
-                return self._finalize_action(action, balls, table, my_targets, safety_sims=12)
+                # 仅当球型处于“紧密球堆(三角架)”时才视为开球。
+                # 否则（例如开球后无人进球，仍有15球在台面但已散开）继续走正常策略。
+                try:
+                    pos = np.asarray([b.state.rvw[0][:2] for b in balls_on_table], dtype=float)
+                    center = pos.mean(axis=0)
+                    mean_r = float(np.mean(np.linalg.norm(pos - center, axis=1)))
+                except Exception:
+                    mean_r = 999.0
+
+                if mean_r < 0.12:
+                    print("   [NewAgent] 🎱 开球")
+                    action = self.get_break_shot_for_targets(balls, my_targets, table)
+                    return self._finalize_action(action, balls, table, my_targets, safety_sims=12)
             
             # 选择目标
             choice = self._choose_best_target(balls, my_targets, table)
@@ -1556,4 +1653,37 @@ class NewAgent(Agent):
             print(f"   [ERROR] 决策失败: {e}")
             import traceback
             traceback.print_exc()
-            return self._random_action()
+
+            # 不再返回随机动作（会显著抬高 no_hit / cue_pocket / first_foul）
+            try:
+                safe = self._find_any_safe_action(balls, table, my_targets, attempts=60, safety_sims=6)
+                if safe is not None:
+                    return safe
+                fallback = self._defense_shot(balls, my_targets, table)
+                return self._finalize_action(fallback, balls, table, my_targets, safety_sims=8)
+            except Exception:
+                # 最终兜底：绝不返回随机/跳球（会显著抬高首球犯规/误打黑8）
+                try:
+                    valid_targets, _ = self._get_valid_targets(balls, my_targets)
+                    cue_pos = balls['cue'].state.rvw[0]
+                    target_ids = [tid for tid in valid_targets if tid in balls and balls[tid].state.s != 4]
+                    if target_ids:
+                        target_ids.sort(key=lambda tid: self._distance(cue_pos, balls[tid].state.rvw[0]))
+                        tid = target_ids[0]
+                        base_phi = self._angle_to_phi(self._normalize(balls[tid].state.rvw[0] - cue_pos))
+                        return {
+                            'V0': 3.2,
+                            'phi': float(base_phi),
+                            'theta': 0.0,
+                            'a': 0.0,
+                            'b': 0.0,
+                        }
+                except Exception:
+                    pass
+                return {
+                    'V0': 3.0,
+                    'phi': 0.0,
+                    'theta': 0.0,
+                    'a': 0.0,
+                    'b': 0.0,
+                }
