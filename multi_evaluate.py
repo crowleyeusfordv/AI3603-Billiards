@@ -87,6 +87,11 @@ def main() -> int:
         default=None,
         help="Base seed. If provided, run i uses seed+ i and evaluate.py becomes deterministic.",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show evaluate.py output (useful for debugging failures)",
+    )
     parser.add_argument("--outdir", type=str, default="eval_runs")
     args = parser.parse_args()
 
@@ -106,16 +111,30 @@ def main() -> int:
         if run_seed is not None:
             cmd += ["--seed", str(run_seed)]
 
-        # Suppress the extremely verbose per-shot output.
-        completed = subprocess.run(
-            cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            env=os.environ.copy(),
-        )
-        if completed.returncode != 0:
-            print(f"Run {i+1}/{runs} failed (exit={completed.returncode}).", file=sys.stderr)
-            return completed.returncode
+        if args.verbose:
+            completed = subprocess.run(cmd, env=os.environ.copy())
+            if completed.returncode != 0:
+                print(f"Run {i+1}/{runs} failed (exit={completed.returncode}).", file=sys.stderr)
+                print(f"Command: {' '.join(cmd)}", file=sys.stderr)
+                return completed.returncode
+        else:
+            # Suppress the extremely verbose per-shot output, but keep stderr for debugging.
+            completed = subprocess.run(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=os.environ.copy(),
+            )
+            if completed.returncode != 0:
+                print(f"Run {i+1}/{runs} failed (exit={completed.returncode}).", file=sys.stderr)
+                print(f"Command: {' '.join(cmd)}", file=sys.stderr)
+                if completed.stderr:
+                    tail = completed.stderr[-4000:]
+                    print("---- evaluate.py stderr (tail) ----", file=sys.stderr)
+                    print(tail, file=sys.stderr)
+                    print("----------------------------------", file=sys.stderr)
+                return completed.returncode
 
         eval_path = Path("evaluation_log.json")
         if not eval_path.exists():
