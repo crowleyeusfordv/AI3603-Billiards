@@ -902,6 +902,60 @@ class NewAgent(Agent):
     def _distance(self, pos1, pos2):
         return np.linalg.norm(np.array(pos1[:2]) - np.array(pos2[:2]))
 
+    def _ray_point_distance_2d(self, ray_origin, ray_dir, point):
+        """Return (perp_distance, t) from a ray to a point in 2D.
+
+        ray_origin: array-like (2,)
+        ray_dir: array-like (2,) assumed normalized
+        point: array-like (2,)
+        t: projection length along ray_dir (t<0 means behind origin)
+        """
+        o = np.asarray(ray_origin, dtype=float)
+        d = np.asarray(ray_dir, dtype=float)
+        p = np.asarray(point, dtype=float)
+        v = p - o
+        t = float(np.dot(v, d))
+        closest = o + t * d
+        dist = float(np.linalg.norm(p - closest))
+        return dist, t
+
+    def _estimate_scratch_risk(self, cue_pos, ghost_pos, table):
+        """Heuristic scratch-risk estimate.
+
+        Approximates cue-ball post-impact direction as cue->ghost ray and penalizes
+        cases where that ray passes close to any pocket mouth.
+        """
+        c = np.asarray(cue_pos[:2], dtype=float)
+        g = np.asarray(ghost_pos[:2], dtype=float)
+        d = self._normalize(g - c)
+
+        # Tuned conservatively: only penalize when the aim ray runs very close to a pocket.
+        # This complements (not replaces) Monte Carlo safety checks.
+        near_threshold = 0.11  # meters
+        min_dist = 1e9
+        min_t = 0.0
+        for _, pocket in table.pockets.items():
+            p = np.asarray(pocket.center[:2], dtype=float)
+            dist, t = self._ray_point_distance_2d(c, d, p)
+            # Only consider pockets in front of the cue ball (ignore behind).
+            if t <= 0.15:
+                continue
+            if dist < min_dist:
+                min_dist = dist
+                min_t = t
+
+        # No meaningful pocket in front
+        if min_dist >= 1e8:
+            return 0.0
+
+        # Risk ramps up when very close to a pocket mouth.
+        if min_dist >= near_threshold:
+            return 0.0
+
+        # Slightly down-weight extremely far pockets to avoid over-penalizing long rays.
+        distance_weight = 1.0 if min_t < 1.2 else 0.7
+        return float(distance_weight * (near_threshold - min_dist) / near_threshold)
+
     def _normalize(self, vec):
         vec = np.array(vec[:2])
         norm = np.linalg.norm(vec)
@@ -1539,6 +1593,12 @@ class NewAgent(Agent):
                 for pid_danger, p_danger in table.pockets.items():
                     if self._distance(ghost_pos, p_danger.center) < 0.15:  # 提高安全距离
                         score -= 400
+
+                # Scratch-risk penalty: avoid selections where the cue-to-ghost ray runs toward a pocket.
+                # This reduces the baseline probability of cue_pocket under noise.
+                scratch_risk = self._estimate_scratch_risk(cue_pos, np.append(ghost_pos, 0.0), table)
+                if scratch_risk > 0:
+                    score -= 650.0 * scratch_risk
                 
                 if target_id == '8' and can_shoot_8:
                     score += 500
