@@ -1598,7 +1598,9 @@ class NewAgent(Agent):
                 # This reduces the baseline probability of cue_pocket under noise.
                 scratch_risk = self._estimate_scratch_risk(cue_pos, np.append(ghost_pos, 0.0), table)
                 if scratch_risk > 0:
-                    score -= 650.0 * scratch_risk
+                    # Keep this as a mild preference (tie-breaker-ish), not a dominating term,
+                    # to avoid hurting winrate by forcing overly suboptimal pot selections.
+                    score -= 350.0 * scratch_risk
                 
                 if target_id == '8' and can_shoot_8:
                     score += 500
