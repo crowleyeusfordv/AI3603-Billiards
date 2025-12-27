@@ -13,6 +13,7 @@ Notes:
 
 import argparse
 import json
+import time
 
 from utils import set_random_seed
 from poolenv import PoolEnv
@@ -28,7 +29,14 @@ def main() -> int:
         default=None,
         help="when provided, enables deterministic seeding via utils.set_random_seed",
     )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="suppress per-shot logs; only print final summary",
+    )
     args = parser.parse_args()
+
+    verbose = not bool(args.quiet)
 
     # 设置随机种子（默认与原脚本一致：不固定随机性）
     if args.seed is None:
@@ -37,6 +45,8 @@ def main() -> int:
         set_random_seed(enable=True, seed=int(args.seed))
 
     env = PoolEnv()
+
+    start_ts = time.perf_counter()
 
     # ========== 基础结果统计 ==========
     results = {
@@ -82,17 +92,20 @@ def main() -> int:
     print("=" * 60)
 
     for i in range(n_games):
-        print(f"\n{'='*60}")
-        print(f"第 {i+1}/{n_games} 局比赛")
-        print(f"{'='*60}")
+        game_start_ts = time.perf_counter()
+        if verbose:
+            print(f"\n{'='*60}")
+            print(f"第 {i+1}/{n_games} 局比赛")
+            print(f"{'='*60}")
 
         env.reset(target_ball=target_ball_choice[i % 4])
         player_class_a = players[i % 2].__class__.__name__
         player_class_b = players[(i + 1) % 2].__class__.__name__
         ball_type = target_ball_choice[i % 4]
 
-        print(f"Player A: {player_class_a} ({ball_type})")
-        print(f"Player B: {player_class_b}")
+        if verbose:
+            print(f"Player A: {player_class_a} ({ball_type})")
+            print(f"Player B: {player_class_b}")
 
         # 本局统计
         game_log = {
@@ -102,12 +115,14 @@ def main() -> int:
             'player_a_ball_type': ball_type,
             'shots': 0,
             'fouls': [],
-            'winner': None
+            'winner': None,
+            'runtime_seconds': None,
         }
 
         while True:
             player = env.get_curr_player()
-            print(f"\n[第{env.hit_count}杆] Player {player} 击球")
+            if verbose:
+                print(f"\n[第{env.hit_count}杆] Player {player} 击球")
 
             obs = env.get_observation(player)
 
@@ -130,7 +145,8 @@ def main() -> int:
             if step_info.get('WHITE_BALL_INTO_POCKET'):
                 foul_stats[current_agent]['cue_pocket'] += 1
                 foul_this_shot.append('白球进袋')
-                print(f"   ❌ 犯规：白球进袋")
+                if verbose:
+                    print(f"   ❌ 犯规：白球进袋")
 
             if step_info.get('BLACK_BALL_INTO_POCKET'):
                 # 检查是否是误打黑8（需要看是否获胜）
@@ -138,22 +154,26 @@ def main() -> int:
                 if done and info['winner'] != player:
                     foul_stats[current_agent]['eight_illegal'] += 1
                     foul_this_shot.append('误打黑8')
-                    print(f"   ❌ 犯规：误打黑8")
+                    if verbose:
+                        print(f"   ❌ 犯规：误打黑8")
 
             if step_info.get('FOUL_FIRST_HIT'):
                 foul_stats[current_agent]['first_foul'] += 1
                 foul_this_shot.append('首球犯规')
-                print(f"   ❌ 犯规：首球碰触对方球")
+                if verbose:
+                    print(f"   ❌ 犯规：首球碰触对方球")
 
             if step_info.get('NO_POCKET_NO_RAIL'):
                 foul_stats[current_agent]['rail_foul'] += 1
                 foul_this_shot.append('碰库犯规')
-                print(f"   ❌ 犯规：无进球且未碰库")
+                if verbose:
+                    print(f"   ❌ 犯规：无进球且未碰库")
 
             if step_info.get('NO_HIT'):
                 foul_stats[current_agent]['no_hit'] += 1
                 foul_this_shot.append('未击中')
-                print(f"   ❌ 犯规：白球未接触任何球")
+                if verbose:
+                    print(f"   ❌ 犯规：白球未接触任何球")
 
             if foul_this_shot:
                 game_log['fouls'].append({
@@ -165,28 +185,34 @@ def main() -> int:
 
             # ========== 进球提示 ==========
             if step_info.get('ME_INTO_POCKET'):
-                print(f"   ✅ 进球：{step_info['ME_INTO_POCKET']}")
+                if verbose:
+                    print(f"   ✅ 进球：{step_info['ME_INTO_POCKET']}")
 
             if step_info.get('ENEMY_INTO_POCKET'):
-                print(f"   ⚠️  对方球进袋：{step_info['ENEMY_INTO_POCKET']}")
+                if verbose:
+                    print(f"   ⚠️  对方球进袋：{step_info['ENEMY_INTO_POCKET']}")
 
             done, info = env.get_done()
             if done:
                 game_log['shots'] = env.hit_count
                 game_log['winner'] = info['winner']
+                game_log['runtime_seconds'] = float(time.perf_counter() - game_start_ts)
 
                 # 统计胜负
                 if info['winner'] == 'SAME':
                     results['SAME'] += 1
-                    print(f"\n🤝 平局！({env.hit_count}杆)")
+                    if verbose:
+                        print(f"\n🤝 平局！({env.hit_count}杆)")
                 elif info['winner'] == 'A':
                     results[['AGENT_A_WIN', 'AGENT_B_WIN'][i % 2]] += 1
                     winner_agent = ['AGENT_A', 'AGENT_B'][i % 2]
-                    print(f"\n🏆 Player A 获胜 ({winner_agent})！({env.hit_count}杆)")
+                    if verbose:
+                        print(f"\n🏆 Player A 获胜 ({winner_agent})！({env.hit_count}杆)")
                 else:
                     results[['AGENT_A_WIN', 'AGENT_B_WIN'][(i+1) % 2]] += 1
                     winner_agent = ['AGENT_A', 'AGENT_B'][(i+1) % 2]
-                    print(f"\n🏆 Player B 获胜 ({winner_agent})！({env.hit_count}杆)")
+                    if verbose:
+                        print(f"\n🏆 Player B 获胜 ({winner_agent})！({env.hit_count}杆)")
 
                 game_logs.append(game_log)
                 break
@@ -246,12 +272,24 @@ def main() -> int:
     print(f"  最长对局: {max([log['shots'] for log in game_logs])} 杆")
 
     # ========== 保存详细日志 ==========
+    total_runtime_seconds = float(time.perf_counter() - start_ts)
+    avg_runtime_seconds = total_runtime_seconds / n_games if n_games > 0 else 0.0
+    print(f"\n【运行时间】")
+    print(f"  总耗时: {total_runtime_seconds:.2f} 秒")
+    print(f"  平均每局: {avg_runtime_seconds:.2f} 秒")
+
     try:
         with open('evaluation_log.json', 'w', encoding='utf-8') as f:
             json.dump({
                 'results': results,
                 'foul_stats': foul_stats,
-                'game_logs': game_logs
+                'game_logs': game_logs,
+                'runtime': {
+                    'total_seconds': total_runtime_seconds,
+                    'avg_seconds_per_game': avg_runtime_seconds,
+                    'games': n_games,
+                    'seed': args.seed,
+                },
             }, f, indent=2, ensure_ascii=False)
         print(f"\n✅ 详细日志已保存到: evaluation_log.json")
     except Exception as e:

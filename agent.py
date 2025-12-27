@@ -1,13 +1,3 @@
-"""
-agent.py - Agent 决策模块
-
-定义 Agent 基类和具体实现：
-- Agent: 基类，定义决策接口
-- BasicAgent: 基于贝叶斯优化的参考实现
-- NewAgent: 学生自定义实现模板
-- analyze_shot_for_reward: 击球结果评分函数
-"""
-
 import math
 import pooltool as pt
 import numpy as np
@@ -33,29 +23,34 @@ def _timeout_handler(signum, frame):
     """超时信号处理器"""
     raise SimulationTimeoutError("物理模拟超时")
 
-def simulate_with_timeout(shot, timeout=3):
-    """带超时保护的物理模拟
-    
+def simulate_with_timeout(shot, timeout=3, **simulate_kwargs):
+    """带超时保护的物理模拟。
+
     参数：
         shot: pt.System 对象
         timeout: 超时时间（秒），默认3秒
-    
+        **simulate_kwargs: 透传给 pooltool.pt.simulate 的参数（如 max_events 等）
+
     返回：
-        bool: True 表示模拟成功，False 表示超时或失败
-    
+        bool: True 表示模拟成功，False 表示超时
+
     说明：
-        使用 signal.SIGALRM 实现超时机制（仅支持 Unix/Linux）
-        超时后自动恢复，不会导致程序卡死
+        使用 signal.SIGALRM 实现超时机制（仅支持 Unix/Linux）。
+        超时后自动恢复，不会导致程序卡死。
     """
     # 设置超时信号处理器
     old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
     signal.alarm(timeout)  # 设置超时时间
     
     try:
-        pt.simulate(shot, inplace=True)
+        # 允许传入 max_events 等参数（NewAgent 的抗噪评估依赖该能力）
+        # 强制 inplace=True；若外部也传入 inplace，则以这里为准。
+        simulate_kwargs.pop('inplace', None)
+        pt.simulate(shot, inplace=True, **simulate_kwargs)
         signal.alarm(0)  # 取消超时
         return True
     except SimulationTimeoutError:
+        signal.alarm(0)  # 取消超时
         print(f"[WARNING] 物理模拟超时（>{timeout}秒），跳过此次模拟")
         return False
     except Exception as e:
@@ -236,8 +231,12 @@ class BasicAgent(Agent):
             'b': 0.003
         }
         self.enable_noise = False
-        
-        print("BasicAgent (Smart, pooltool-native) 已初始化。")
+
+        # 大量打印会显著拖慢评测；可通过环境变量开启：BILLIARDS_DEBUG=1
+        self.debug_mode = bool(int(os.getenv("BILLIARDS_DEBUG", "0")))
+
+        if self.debug_mode:
+            print("BasicAgent (Smart, pooltool-native) 已初始化。")
 
     
     def _create_optimizer(self, reward_function, seed):
@@ -287,7 +286,8 @@ class BasicAgent(Agent):
                 失败时返回随机动作
         """
         if balls is None:
-            print(f"[BasicAgent] Agent decision函数未收到balls关键信息，使用随机动作。")
+            if self.debug_mode:
+                print(f"[BasicAgent] Agent decision函数未收到balls关键信息，使用随机动作。")
             return self._random_action()
         try:
             
@@ -297,7 +297,8 @@ class BasicAgent(Agent):
             remaining_own = [bid for bid in my_targets if balls[bid].state.s != 4]
             if len(remaining_own) == 0:
                 my_targets = ["8"]
-                print("[BasicAgent] 我的目标球已全部清空，自动切换目标为：8号球")
+                if self.debug_mode:
+                    print("[BasicAgent] 我的目标球已全部清空，自动切换目标为：8号球")
 
             # 1.动态创建“奖励函数” (Wrapper)
             # 贝叶斯优化器会调用此函数，并传入参数
@@ -344,7 +345,8 @@ class BasicAgent(Agent):
 
                 return score
 
-            print(f"[BasicAgent] 正在为 Player (targets: {my_targets}) 搜索最佳击球...")
+            if self.debug_mode:
+                print(f"[BasicAgent] 正在为 Player (targets: {my_targets}) 搜索最佳击球...")
             
             seed = np.random.randint(1e6)
             optimizer = self._create_optimizer(reward_fn_wrapper, seed)
@@ -358,7 +360,8 @@ class BasicAgent(Agent):
             best_score = best_result['target']
 
             if best_score < 10:
-                print(f"[BasicAgent] 未找到好的方案 (最高分: {best_score:.2f})。使用随机动作。")
+                if self.debug_mode:
+                    print(f"[BasicAgent] 未找到好的方案 (最高分: {best_score:.2f})。使用随机动作。")
                 return self._random_action()
             action = {
                 'V0': float(best_params['V0']),
@@ -368,523 +371,38 @@ class BasicAgent(Agent):
                 'b': float(best_params['b']),
             }
 
-            print(f"[BasicAgent] 决策 (得分: {best_score:.2f}): "
-                  f"V0={action['V0']:.2f}, phi={action['phi']:.2f}, "
-                  f"θ={action['theta']:.2f}, a={action['a']:.3f}, b={action['b']:.3f}")
+            if self.debug_mode:
+                print(f"[BasicAgent] 决策 (得分: {best_score:.2f}): "
+                    f"V0={action['V0']:.2f}, phi={action['phi']:.2f}, "
+                    f"θ={action['theta']:.2f}, a={action['a']:.3f}, b={action['b']:.3f}")
             return action
 
         except Exception as e:
-            print(f"[BasicAgent] 决策时发生严重错误，使用随机动作。原因: {e}")
+            if self.debug_mode:
+                print(f"[BasicAgent] 决策时发生严重错误，使用随机动作。原因: {e}")
             import traceback
             traceback.print_exc()
             return self._random_action()
 
-# """
-# NewAgent - Phase 24: 全面防护版
-# 核心改进：
-# 1. 首球犯规检测（抗噪+确定性）
-# 2. 贝叶斯优化阶段严格过滤
-# 3. 三重安全验证机制
-# 4. 清台判断严格化
-# """
-
-# class NewAgent(Agent):
-#     def __init__(self):
-#         super().__init__()
-#         self.BALL_RADIUS = 0.028575
-#         self.SEARCH_INIT = 15
-#         self.SEARCH_ITER = 10
-        
-#         # 同步环境噪声参数
-#         self.noise_std = {
-#             'V0': 0.1, 'phi': 0.1, 'theta': 0.1, 
-#             'a': 0.003, 'b': 0.003
-#         }
-#         print("[NewAgent] Phase 24: 全面防护版已初始化")
-
-#     # ========== 工具函数（保持不变）==========
-#     def _distance(self, pos1, pos2):
-#         return np.linalg.norm(np.array(pos1[:2]) - np.array(pos2[:2]))
-
-#     def _normalize(self, vec):
-#         vec = np.array(vec[:2])
-#         norm = np.linalg.norm(vec)
-#         return vec / norm if norm > 1e-6 else np.array([1.0, 0.0])
-
-#     def _angle_to_phi(self, direction_vec):
-#         phi = np.arctan2(direction_vec[1], direction_vec[0]) * 180 / np.pi
-#         return phi % 360
-
-#     def _calculate_ghost_ball(self, target_pos, pocket_pos):
-#         target_to_pocket = self._normalize(np.array(pocket_pos[:2]) - np.array(target_pos[:2]))
-#         return np.array(target_pos[:2]) - target_to_pocket * (2 * self.BALL_RADIUS)
-
-#     def _calculate_cut_angle(self, cue_pos, target_pos, pocket_pos):
-#         ghost_pos = self._calculate_ghost_ball(target_pos, pocket_pos)
-#         vec1 = self._normalize(np.array(ghost_pos) - np.array(cue_pos[:2]))
-#         vec2 = self._normalize(np.array(pocket_pos[:2]) - np.array(target_pos[:2]))
-#         dot = np.clip(np.dot(vec1, vec2), -1.0, 1.0)
-#         return np.degrees(np.arccos(dot))
-
-#     def _count_obstructions(self, balls, from_pos, to_pos, exclude_ids=['cue']):
-#         count = 0
-#         line_vec = np.array(to_pos[:2]) - np.array(from_pos[:2])
-#         line_length = np.linalg.norm(line_vec)
-#         if line_length < 1e-6: return 0
-#         line_dir = line_vec / line_length
-        
-#         for bid, ball in balls.items():
-#             if bid in exclude_ids or ball.state.s == 4: continue
-#             ball_pos = ball.state.rvw[0][:2]
-#             vec_to_ball = ball_pos - np.array(from_pos[:2])
-#             proj_length = np.dot(vec_to_ball, line_dir)
-#             if proj_length < 0 or proj_length > line_length: continue
-#             proj_point = np.array(from_pos[:2]) + line_dir * proj_length
-#             dist_to_line = np.linalg.norm(ball_pos - proj_point)
-#             if dist_to_line < self.BALL_RADIUS * 2.2: count += 1
-#         return count
-
-#     # ========== 关键改进1：严格清台判断 ==========
-#     def _check_can_shoot_8(self, balls, my_targets):
-#         """判断是否可以打黑8（必须己方球全清）"""
-#         # 过滤掉黑8本身
-#         real_targets = [bid for bid in my_targets if bid != '8']
-#         remaining = [bid for bid in real_targets if balls[bid].state.s != 4]
-#         return len(remaining) == 0
-
-#     def _get_valid_targets(self, balls, my_targets):
-#         """获取当前应该瞄准的球（严格区分清台前后）"""
-#         can_shoot_8 = self._check_can_shoot_8(balls, my_targets)
-#         remaining = [bid for bid in my_targets if balls[bid].state.s != 4]
-        
-#         if can_shoot_8:
-#             # 清台后：只能打黑8
-#             return ['8'], True
-#         else:
-#             # 清台前：只能打己方球（绝不包含黑8）
-#             valid = [bid for bid in remaining if bid != '8']
-#             return valid if valid else [], False
-
-#     # ========== 关键改进2：首球犯规检测 ==========
-#     def _check_first_contact(self, shot, valid_target_ids):
-#         """检测首球碰撞是否合法
-        
-#         Args:
-#             shot: 模拟后的System对象
-#             valid_target_ids: 合法首球列表（己方球或黑8）
-        
-#         Returns:
-#             (is_legal, first_ball_id)
-#         """
-#         valid_ball_ids = {'1','2','3','4','5','6','7','8','9','10','11','12','13','14','15'}
-        
-#         for e in shot.events:
-#             et = str(e.event_type).lower()
-#             ids = list(e.ids) if hasattr(e, 'ids') else []
-            
-#             # 跳过库边和球袋事件
-#             if 'cushion' in et or 'pocket' in et:
-#                 continue
-            
-#             # 检测白球碰撞事件
-#             if 'cue' in ids:
-#                 other_ids = [i for i in ids if i != 'cue' and i in valid_ball_ids]
-#                 if other_ids:
-#                     first_ball = other_ids[0]
-#                     is_legal = (first_ball in valid_target_ids)
-#                     return is_legal, first_ball
-        
-#         # 未击中任何球
-#         return False, None
-
-#     # ========== 关键改进3：全面安全检查 ==========
-#     def _is_action_safe(self, action, balls, table, valid_targets, simulations=6):
-#         """三重安全验证：进袋 + 首球 + 碰库
-        
-#         Args:
-#             action: 待验证动作
-#             balls: 当前球状态
-#             valid_targets: 合法目标球ID列表（不含黑8，除非已清台）
-#             simulations: 蒙特卡洛测试次数
-        
-#         Returns:
-#             bool: True表示安全，False表示存在风险
-#         """
-#         can_shoot_8 = ('8' in valid_targets)
-        
-#         for i in range(simulations):
-#             # 1. 施加噪声
-#             noisy_action = {
-#                 'V0': np.clip(action['V0'] + np.random.normal(0, self.noise_std['V0']), 0.5, 8.0),
-#                 'phi': (action['phi'] + np.random.normal(0, self.noise_std['phi'])) % 360,
-#                 'theta': np.clip(action['theta'] + np.random.normal(0, self.noise_std['theta']), 0, 90),
-#                 'a': np.clip(action['a'] + np.random.normal(0, self.noise_std['a']), -0.5, 0.5),
-#                 'b': np.clip(action['b'] + np.random.normal(0, self.noise_std['b']), -0.5, 0.5)
-#             }
-            
-#             # 2. 模拟
-#             sim_balls = {k: copy.deepcopy(v) for k, v in balls.items()}
-#             cue = pt.Cue(cue_ball_id="cue")
-#             shot = pt.System(table=copy.deepcopy(table), balls=sim_balls, cue=cue)
-            
-#             try:
-#                 shot.cue.set_state(**noisy_action)
-#                 pt.simulate(shot, inplace=True, max_events=200)
-#             except:
-#                 return False  # 物理引擎崩溃视为不安全
-            
-#             # 3. 检查进袋（致命错误）
-#             new_pocketed = [bid for bid, b in shot.balls.items() 
-#                           if b.state.s == 4 and balls[bid].state.s != 4]
-            
-#             if 'cue' in new_pocketed:
-#                 return False  # 白球进袋
-            
-#             if '8' in new_pocketed and not can_shoot_8:
-#                 return False  # 误打黑8
-            
-#             if 'cue' in new_pocketed or '8' in new_pocketed:
-#                 # 白球+黑8同时进袋已在上面拦截
-#                 pass
-            
-#             # 4. 检查首球碰撞
-#             is_legal, first_ball = self._check_first_contact(shot, valid_targets)
-#             if not is_legal:
-#                 return False  # 首球犯规
-            
-#             # 5. 检查碰库（仅当无进球时）
-#             if len(new_pocketed) == 0 and first_ball is not None:
-#                 cue_hit_cushion = False
-#                 target_hit_cushion = False
-                
-#                 for e in shot.events:
-#                     et = str(e.event_type).lower()
-#                     ids = list(e.ids) if hasattr(e, 'ids') else []
-#                     if 'cushion' in et:
-#                         if 'cue' in ids: cue_hit_cushion = True
-#                         if first_ball in ids: target_hit_cushion = True
-                
-#                 if not cue_hit_cushion and not target_hit_cushion:
-#                     return False  # 碰库犯规
-        
-#         return True  # 通过所有测试
-
-#     # ========== 关键改进4：贝叶斯优化阶段防护 ==========
-#     def _optimized_search(self, geo_action, balls, my_targets, table):
-#         """贝叶斯优化 + 严格安全过滤"""
-#         pbounds = {
-#             'V0': (max(0.5, geo_action['V0'] - 1.5), min(8.0, geo_action['V0'] + 1.5)),
-#             'phi': (geo_action['phi'] - 2.5, geo_action['phi'] + 2.5),
-#             'theta': (0, 0), 'a': (-0.5, 0.5), 'b': (-0.5, 0.5)
-#         }
-        
-#         last_state = {bid: copy.deepcopy(ball) for bid, ball in balls.items()}
-#         valid_targets, can_shoot_8 = self._get_valid_targets(balls, my_targets)
-        
-#         if not valid_targets:
-#             print("[Optimizer] ⚠️ 无有效目标球")
-#             return geo_action
-
-#         def reward_fn(V0, phi, theta, a, b):
-#             sim_balls = {bid: copy.deepcopy(ball) for bid, ball in balls.items()}
-#             cue = pt.Cue(cue_ball_id="cue")
-#             shot = pt.System(table=copy.deepcopy(table), balls=sim_balls, cue=cue)
-            
-#             try:
-#                 shot.cue.set_state(V0=V0, phi=phi, theta=theta, a=a, b=b)
-#                 pt.simulate(shot, inplace=True, max_events=200)
-#             except:
-#                 return -1000
-            
-#             # 死锁检测
-#             for ball in shot.balls.values():
-#                 if ball.state.s not in [0, 4]:
-#                     return -2000
-            
-#             # 进袋检测
-#             new_pocketed = [bid for bid, b in shot.balls.items() 
-#                           if b.state.s == 4 and last_state[bid].state.s != 4]
-            
-#             if 'cue' in new_pocketed:
-#                 return -1000  # 白球进袋
-            
-#             if '8' in new_pocketed and not can_shoot_8:
-#                 return -1500  # 误打黑8
-            
-#             # 首球犯规检测
-#             is_legal, _ = self._check_first_contact(shot, valid_targets)
-#             if not is_legal:
-#                 return -800  # 首球犯规
-            
-#             # 基础分
-#             base_score = analyze_shot_for_reward(shot, last_state, valid_targets)
-            
-#             # 走位奖励
-#             own_pocketed = [bid for bid in new_pocketed if bid in valid_targets]
-#             position_bonus = 0
-#             if len(own_pocketed) > 0 and '8' not in new_pocketed:
-#                 final_cue_pos = shot.balls['cue'].state.rvw[0]
-#                 pos_quality = self._evaluate_position_quality(
-#                     final_cue_pos, shot.balls, my_targets, my_targets
-#                 )
-#                 position_bonus = pos_quality * 30
-            
-#             return base_score + position_bonus
-
-#         try:
-#             optimizer = BayesianOptimization(
-#                 f=reward_fn, pbounds=pbounds, random_state=42, verbose=0
-#             )
-#             optimizer.maximize(init_points=self.SEARCH_INIT, n_iter=self.SEARCH_ITER)
-            
-#             if optimizer.max['target'] > -100:
-#                 p = optimizer.max['params']
-#                 return {
-#                     'V0': p['V0'], 'phi': p['phi'], 'theta': p['theta'], 
-#                     'a': p['a'], 'b': p['b']
-#                 }
-#         except Exception as e:
-#             print(f"[Optimizer] 优化失败: {e}")
-        
-#         return geo_action
-
-#     # ========== 关键改进5：多轮验证 ==========
-#     def _validate_and_adjust(self, action, balls, table, my_targets):
-#         """验证并微调动作（三重防护）"""
-#         valid_targets, can_shoot_8 = self._get_valid_targets(balls, my_targets)
-        
-#         if not valid_targets:
-#             return self._defense_shot(balls, my_targets)
-        
-#         # 测试变体
-#         variations = [
-#             (1.0, 0), (0.95, 0), (1.05, 0),
-#             (1.0, 0.5), (1.0, -0.5), (1.0, 1.0), (1.0, -1.0)
-#         ]
-        
-#         best_safe_action = None
-#         best_with_pocket = None
-        
-#         for v_scale, phi_offset in variations:
-#             test_action = action.copy()
-#             test_action['V0'] = np.clip(test_action['V0'] * v_scale, 0.5, 8.0)
-#             test_action['phi'] = (test_action['phi'] + phi_offset) % 360
-            
-#             # 第一步：快速确定性测试
-#             sim_balls = {k: copy.deepcopy(v) for k, v in balls.items()}
-#             cue = pt.Cue(cue_ball_id="cue")
-#             shot = pt.System(table=copy.deepcopy(table), balls=sim_balls, cue=cue)
-            
-#             try:
-#                 shot.cue.set_state(**test_action)
-#                 pt.simulate(shot, inplace=True, max_events=200)
-#             except:
-#                 continue
-            
-#             new_pocketed = [bid for bid, b in shot.balls.items() 
-#                           if b.state.s == 4 and balls[bid].state.s != 4]
-            
-#             # 基础过滤
-#             if 'cue' in new_pocketed or ('8' in new_pocketed and not can_shoot_8):
-#                 continue
-            
-#             is_legal, _ = self._check_first_contact(shot, valid_targets)
-#             if not is_legal:
-#                 continue
-            
-#             # 第二步：抗噪鲁棒性测试
-#             if not self._is_action_safe(test_action, balls, table, valid_targets, simulations=6):
-#                 print(f"[Guardian] ⚠️ 拦截风险动作 (V0={test_action['V0']:.1f})")
-#                 continue
-            
-#             # 第三步：优先返回进球方案
-#             own_pocketed = [bid for bid in new_pocketed if bid in valid_targets]
-#             if len(own_pocketed) > 0:
-#                 best_with_pocket = test_action
-#                 break  # 找到进球+安全方案，立即返回
-            
-#             # 记录安全的无进球方案
-#             if v_scale == 1.0 and phi_offset == 0:
-#                 best_safe_action = test_action
-        
-#         if best_with_pocket:
-#             return best_with_pocket
-        
-#         if best_safe_action:
-#             return best_safe_action
-        
-#         # 兜底防守
-#         print("[Protector] 🛡️ 启动防守模式")
-#         return self._defense_shot(balls, my_targets)
-
-#     # ========== 辅助函数 ==========
-#     def _evaluate_position_quality(self, cue_pos, balls, my_targets, original_targets):
-#         """评估白球位置质量"""
-#         valid_targets, _ = self._get_valid_targets(balls, my_targets)
-#         if not valid_targets:
-#             return 1.0
-        
-#         min_dist = 100.0
-#         for tid in valid_targets:
-#             if balls[tid].state.s == 4: continue
-#             dist = self._distance(cue_pos, balls[tid].state.rvw[0])
-#             if dist < min_dist: min_dist = dist
-        
-#         if 0.2 < min_dist < 1.0:
-#             return 1.0
-#         return 0.5
-
-#     def get_break_shot(self, balls):
-#         """开球方案"""
-#         target = balls['1']
-#         cue = balls['cue']
-#         vec = target.state.rvw[0] - cue.state.rvw[0]
-#         phi = self._angle_to_phi(self._normalize(vec))
-#         return {'V0': 8.0, 'phi': phi, 'theta': 0, 'a': 0.0, 'b': -0.2}
-
-#     def _choose_best_target(self, balls, my_targets, table):
-#         """选择最佳目标（严格过滤黑8）"""
-#         valid_targets, can_shoot_8 = self._get_valid_targets(balls, my_targets)
-        
-#         if not valid_targets:
-#             return None
-        
-#         best_choice = None
-#         best_score = -1e9
-#         cue_pos = balls['cue'].state.rvw[0]
-        
-#         for target_id in valid_targets:
-#             if balls[target_id].state.s == 4: continue
-#             target_pos = balls[target_id].state.rvw[0]
-            
-#             for pocket_id, pocket in table.pockets.items():
-#                 score = 0
-#                 pocket_pos = pocket.center
-                
-#                 dist_cue_target = self._distance(cue_pos, target_pos)
-#                 dist_target_pocket = self._distance(target_pos, pocket_pos)
-#                 score += 50 / (1 + dist_cue_target + dist_target_pocket)
-                
-#                 cut_angle = self._calculate_cut_angle(cue_pos, target_pos, pocket_pos)
-#                 if cut_angle > 80: continue
-#                 score += (90 - cut_angle) * 1.2
-                
-#                 obs_1 = self._count_obstructions(
-#                     balls, cue_pos, target_pos, exclude_ids=['cue', target_id]
-#                 )
-#                 if obs_1 > 0: score -= 500
-                
-#                 obs_2 = self._count_obstructions(
-#                     balls, target_pos, pocket_pos, exclude_ids=['cue', target_id]
-#                 )
-#                 if obs_2 > 0: score -= 500
-                
-#                 ghost_pos = self._calculate_ghost_ball(target_pos, pocket_pos)
-#                 for pid_danger, p_danger in table.pockets.items():
-#                     if self._distance(ghost_pos, p_danger.center) < 0.12:
-#                         score -= 300
-                
-#                 if target_id == '8' and can_shoot_8:
-#                     score += 500
-                
-#                 if score > best_score:
-#                     best_score = score
-#                     best_choice = (target_id, pocket_id)
-        
-#         return best_choice
-
-#     def _geometric_shot(self, cue_pos, target_pos, pocket_pos):
-#         """几何预瞄"""
-#         ghost_pos = self._calculate_ghost_ball(target_pos, pocket_pos)
-#         cue_to_ghost = ghost_pos - np.array(cue_pos[:2])
-#         phi = self._angle_to_phi(self._normalize(cue_to_ghost))
-#         dist = self._distance(cue_pos, ghost_pos)
-#         V0 = np.clip(1.8 + dist * 2.2, 1.5, 7.5)
-#         return {'V0': float(V0), 'phi': float(phi), 'theta': 0.0, 'a': 0.0, 'b': 0.0}
-
-#     def _defense_shot(self, balls, my_targets):
-#         """防守模式"""
-#         cue_pos = balls['cue'].state.rvw[0]
-#         valid_targets, _ = self._get_valid_targets(balls, my_targets)
-        
-#         if not valid_targets:
-#             valid_targets = ['8']
-        
-#         min_dist = 100
-#         target_id = None
-#         for tid in valid_targets:
-#             if balls[tid].state.s == 4: continue
-#             dist = self._distance(cue_pos, balls[tid].state.rvw[0])
-#             if dist < min_dist:
-#                 min_dist = dist
-#                 target_id = tid
-        
-#         if target_id:
-#             vec = balls[target_id].state.rvw[0] - cue_pos
-#             phi = self._angle_to_phi(self._normalize(vec))
-#             return {'V0': 1.0 + min_dist, 'phi': phi, 'theta': 0, 'a': 0, 'b': 0}
-        
-#         return self._random_action()
-
-#     # ========== 主决策入口 ==========
-#     def decision(self, balls, my_targets, table):
-#         """主决策函数"""
-#         try:
-#             # 检测开球
-#             balls_on_table = [b for k, b in balls.items() 
-#                             if k != 'cue' and b.state.s != 4]
-#             if len(balls_on_table) == 15:
-#                 print("[NewAgent] 🎱 开球")
-#                 return self.get_break_shot(balls)
-            
-#             # 选择目标
-#             choice = self._choose_best_target(balls, my_targets, table)
-#             if not choice:
-#                 return self._defense_shot(balls, my_targets)
-            
-#             tid, pid = choice
-#             cue_pos = balls['cue'].state.rvw[0]
-#             target_pos = balls[tid].state.rvw[0]
-#             pocket_pos = table.pockets[pid].center
-            
-#             print(f"[NewAgent] 目标: {tid} → 袋口: {pid}")
-            
-#             # 几何预瞄
-#             geo_action = self._geometric_shot(cue_pos, target_pos, pocket_pos)
-            
-#             # 贝叶斯优化
-#             final_action = self._optimized_search(geo_action, balls, my_targets, table)
-            
-#             # 三重验证
-#             final_action = self._validate_and_adjust(final_action, balls, table, my_targets)
-            
-#             return final_action
-        
-#         except Exception as e:
-#             print(f"[NewAgent] Critical Error: {e}")
-#             import traceback
-#             traceback.print_exc()
-#             return self._random_action()
-
-"""
-NewAgent - Phase 25: Ultra Safe Edition
-核心改进：
-1. 提高犯规惩罚权重（-5000起步）
-2. 强制三重验证（不允许跳过）
-3. 增加抗噪测试到10次
-4. 添加调试日志定位问题
-"""
 
 class NewAgent(Agent):
+    """NewAgent - Phase 25: Ultra Safe Edition
+
+    核心改进：
+    1. 提高犯规惩罚权重（-5000起步）
+    2. 强制三重验证（不允许跳过）
+    3. 增加抗噪测试到10次
+    4. 添加调试日志定位问题
+    """
     def __init__(self):
         super().__init__()
         self.BALL_RADIUS = 0.028575
         self.SEARCH_INIT = 12  # 降低搜索次数，提高质量
         self.SEARCH_ITER = 8
 
-        # a/b 仍允许全范围（与环境一致），这里只做参数裁剪/标准化
-        # 若需要更激进地压白球进袋，可再单独收紧该阈值
-        self.AB_LIMIT = 0.50
+        # a/b 的极值会显著增加“偏杆导致的偏转/不确定性”，进而抬高
+        # no-hit / first-contact / scratch 的概率。环境允许到 0.5，但这里更保守。
+        self.AB_LIMIT = 0.25
         
         self.noise_std = {
             'V0': 0.1, 'phi': 0.1, 'theta': 0.1, 
@@ -1044,6 +562,44 @@ class NewAgent(Agent):
         
         return False, None
 
+    def _is_eight_in_pocket_danger(self, balls, table, threshold: float = 0.22) -> bool:
+        """Return True if the 8-ball is already close to any pocket mouth.
+
+        When the 8 is near a pocket pre-clear, even light incidental contact can
+        turn into an illegal-8 pocket under execution noise.
+        """
+        try:
+            if '8' not in balls:
+                return False
+            if balls['8'].state.s == 4:
+                return False
+            eight_xy = np.asarray(balls['8'].state.rvw[0][:2], dtype=float)
+            pocket_centers = [np.asarray(p.center[:2], dtype=float) for p in table.pockets.values()]
+            if not pocket_centers:
+                return False
+            min_dist = min(float(np.linalg.norm(eight_xy - pc)) for pc in pocket_centers)
+            return min_dist < float(threshold)
+        except Exception:
+            return False
+
+    def _shot_touches_ball(self, shot, ball_id: str) -> bool:
+        """Return True if any non-pocket/non-cushion event involves `ball_id`."""
+        valid_ball_ids = {
+            '1', '2', '3', '4', '5', '6', '7', '8',
+            '9', '10', '11', '12', '13', '14', '15',
+            'cue',
+        }
+
+        for e in getattr(shot, 'events', []) or []:
+            et = str(getattr(e, 'event_type', '')).lower()
+            if 'cushion' in et or 'pocket' in et:
+                continue
+            ids = list(e.ids) if hasattr(e, 'ids') else []
+            if ball_id in ids and any((i != ball_id) and (i in valid_ball_ids) for i in ids):
+                return True
+
+        return False
+
     def _sanitize_action(self, action):
         """标准化/裁剪动作参数，避免极端 a/b 导致的高风险出杆。"""
         if action is None:
@@ -1057,108 +613,236 @@ class NewAgent(Agent):
         return out
 
     # ========== 核心：全面安全检查（提高到10次） ==========
-    def _is_action_safe(self, action, balls, table, valid_targets, simulations=10):
-        """10次蒙特卡洛安全验证
-        
-        Args:
-            simulations: 提高到10次（原来6次不够）
-        
-        Returns:
-            bool: True=安全, False=危险
+    def _simulate_envlike(self, shot, timeout=3):
+        """尽量对齐环境：使用较高的 max_events + 超时保护。
+
+        说明：PoolEnv 侧是 `pt.simulate(..., inplace=True)`（不显式限制 max_events）。
+        这里完全不设上限会显著变慢并导致超时过多，反而让严格安全门失效。
+        采用“较高但有限”的 max_events 来覆盖绝大多数后续进袋/碰撞事件。
+        """
+        ok = simulate_with_timeout(shot, timeout=timeout, max_events=1200)
+        if not ok:
+            raise SimulationTimeoutError("simulate timeout")
+
+    def _assess_action_risk(self, action, balls, table, valid_targets, simulations=10):
+        """在噪声下评估动作风险，返回每类致命/犯规事件的出现次数。
+
+        目的：
+        - 比 bool 更可解释（能定位是 scratch / first-contact / no-hit 等哪类在冒头）
+        - 使用 env-like 仿真（无 max_events 截断），避免漏掉后续进袋导致的误判
         """
         can_shoot_8 = ('8' in valid_targets)
         action = self._sanitize_action(action)
-        # 环境侧 pt.simulate() 不限制 max_events。若这里过小，会漏掉“后续才发生”的黑8/白球进袋。
-        # 仅在“未清台(不能打8)”时提高上限，优先压制 eight_illegal。
-        base_max_events = 350 if (not can_shoot_8) else 250
-        
-        for i in range(simulations):
-            # 1. 施加噪声
+
+        eight_start_xy = None
+        pocket_centers_xy = None
+        if table is not None:
+            try:
+                pocket_centers_xy = [np.asarray(p.center[:2], dtype=float) for p in table.pockets.values()]
+            except Exception:
+                pocket_centers_xy = None
+
+        if (not can_shoot_8) and ('8' in balls):
+            try:
+                eight_start_xy = np.asarray(balls['8'].state.rvw[0][:2], dtype=float)
+            except Exception:
+                eight_start_xy = None
+
+        risk = {
+            'physics_fail': 0,
+            'cue_pocket': 0,
+            'eight_illegal': 0,
+            'first_contact': 0,
+            'no_hit': 0,
+            'no_pocket_no_rail': 0,
+            # Pre-clear diagnostics (not necessarily fatal): used to trigger extra MC
+            'eight_moved': 0,
+            'eight_near_pocket': 0,
+            'eight_danger': 0,
+        }
+
+        # 未清台时提高上限，优先捕捉“误打黑8”等后续事件
+        sim_max_events = 1400 if (not can_shoot_8) else 1000
+
+        for _ in range(int(simulations)):
             noisy_action = {
-                'V0': np.clip(action['V0'] + np.random.normal(0, self.noise_std['V0']), 0.5, 8.0),
-                'phi': (action['phi'] + np.random.normal(0, self.noise_std['phi'])) % 360,
-                'theta': np.clip(action['theta'] + np.random.normal(0, self.noise_std['theta']), 0, 90),
-                'a': np.clip(action['a'] + np.random.normal(0, self.noise_std['a']), -0.5, 0.5),
-                'b': np.clip(action['b'] + np.random.normal(0, self.noise_std['b']), -0.5, 0.5)
+                'V0': float(np.clip(action['V0'] + np.random.normal(0, self.noise_std['V0']), 0.5, 8.0)),
+                'phi': float((action['phi'] + np.random.normal(0, self.noise_std['phi'])) % 360),
+                'theta': float(np.clip(action['theta'] + np.random.normal(0, self.noise_std['theta']), 0, 90)),
+                'a': float(np.clip(action['a'] + np.random.normal(0, self.noise_std['a']), -self.AB_LIMIT, self.AB_LIMIT)),
+                'b': float(np.clip(action['b'] + np.random.normal(0, self.noise_std['b']), -self.AB_LIMIT, self.AB_LIMIT)),
             }
-            
-            # 2. 模拟
+
             sim_balls = {k: copy.deepcopy(v) for k, v in balls.items()}
             cue = pt.Cue(cue_ball_id="cue")
             shot = pt.System(table=copy.deepcopy(table), balls=sim_balls, cue=cue)
-            
             try:
                 shot.cue.set_state(**noisy_action)
-                pt.simulate(shot, inplace=True, max_events=base_max_events)
-            except:
-                if self.debug_mode:
-                    print(f"   [DEBUG] ⚠️ 第{i+1}次模拟失败（物理引擎错误）")
-                return False
-            
-            # 3. 检查进袋
-            new_pocketed = [bid for bid, b in shot.balls.items() 
-                          if b.state.s == 4 and balls[bid].state.s != 4]
-            
+                ok = simulate_with_timeout(shot, timeout=3, max_events=sim_max_events)
+                if not ok:
+                    raise SimulationTimeoutError("simulate timeout")
+            except Exception:
+                risk['physics_fail'] += 1
+                continue
+
+            new_pocketed = [bid for bid, b in shot.balls.items() if b.state.s == 4 and balls[bid].state.s != 4]
             if 'cue' in new_pocketed:
-                if self.debug_mode:
-                    print(f"   [DEBUG] ❌ 第{i+1}次测试：白球进袋")
-                return False
-            
-            if '8' in new_pocketed and not can_shoot_8:
-                if self.debug_mode:
-                    print(f"   [DEBUG] ❌ 第{i+1}次测试：误打黑8")
-                return False
-            
-            # 4. 检查首球
+                risk['cue_pocket'] += 1
+                continue
+            if ('8' in new_pocketed) and (not can_shoot_8):
+                risk['eight_illegal'] += 1
+                continue
+
+            # Pre-clear: if the 8-ball gets disturbed (moves) or ends up near a pocket,
+            # we treat this shot as "tail-risky" and will trigger extra MC sampling.
+            if (not can_shoot_8) and eight_start_xy is not None and pocket_centers_xy:
+                try:
+                    eight_end_xy = np.asarray(shot.balls['8'].state.rvw[0][:2], dtype=float)
+                    # Ignore tiny numerical drift; only flag meaningful 8 motion.
+                    if float(np.linalg.norm(eight_end_xy - eight_start_xy)) > 0.02:
+                        risk['eight_moved'] += 1
+                    min_pocket_dist = min(float(np.linalg.norm(eight_end_xy - pc)) for pc in pocket_centers_xy)
+                    if min_pocket_dist < 0.17:
+                        risk['eight_near_pocket'] += 1
+                    if min_pocket_dist < 0.25:
+                        risk['eight_danger'] += 1
+                except Exception:
+                    pass
+
             is_legal, first_ball = self._check_first_contact(shot, valid_targets)
             if not is_legal:
-                if self.debug_mode:
-                    print(f"   [DEBUG] ❌ 第{i+1}次测试：首球犯规（首球={first_ball}, 合法目标={valid_targets[:3]}）")
-                return False
-            
-            # 5. 检查碰库
+                risk['first_contact'] += 1
+                if first_ball is None:
+                    risk['no_hit'] += 1
+                continue
+
+            # 若无进球，则必须满足碰库规则（对齐 poolenv）
             if len(new_pocketed) == 0 and first_ball is not None:
                 cue_hit_cushion = False
                 target_hit_cushion = False
-                
                 for e in shot.events:
                     et = str(e.event_type).lower()
                     ids = list(e.ids) if hasattr(e, 'ids') else []
                     if 'cushion' in et:
-                        if 'cue' in ids: cue_hit_cushion = True
-                        if first_ball in ids: target_hit_cushion = True
-                
-                if not cue_hit_cushion and not target_hit_cushion:
-                    if self.debug_mode:
-                        print(f"   [DEBUG] ❌ 第{i+1}次测试：碰库犯规")
-                    return False
-        
-        if self.debug_mode:
-            print(f"   [DEBUG] ✅ 通过{simulations}次安全测试")
-        return True
+                        if 'cue' in ids:
+                            cue_hit_cushion = True
+                        if first_ball in ids:
+                            target_hit_cushion = True
+                if (not cue_hit_cushion) and (not target_hit_cushion):
+                    risk['no_pocket_no_rail'] += 1
 
-    def _simulate_deterministic_once(self, action, balls, table, max_events=350):
+        return risk
+
+    def _pick_min_risk_action(self, actions, balls, table, my_targets, simulations=6):
+        """在候选动作中选“风险最小”的一个，用于 strict gate 下的最后兜底。
+
+        排序目标（从最重要到次要）：
+        1) first_contact + no_hit（你选择的A策略优先压）
+        2) cue_pocket
+        3) eight_illegal
+        4) no_pocket_no_rail
+        5) physics_fail
+        """
+        valid_targets, _ = self._get_valid_targets(balls, my_targets)
+        if not valid_targets:
+            return None
+
+        best = None
+        best_key = None
+        for a in actions:
+            if a is None:
+                continue
+            risk = self._assess_action_risk(a, balls, table, valid_targets, simulations=simulations)
+            key = (
+                risk['first_contact'] + risk['no_hit'],
+                risk['cue_pocket'],
+                risk['eight_illegal'],
+                risk['no_pocket_no_rail'],
+                risk['physics_fail'],
+            )
+            if best_key is None or key < best_key:
+                best_key = key
+                best = a
+
+        if self.debug_mode and best_key is not None:
+            print(f"   [DEBUG] min-risk key={best_key}")
+        return best
+
+    def _is_action_safe(self, action, balls, table, valid_targets, simulations=10):
+        """严格安全判定：关键犯规在噪声测试中出现 1 次也拒绝。"""
+        risk = self._assess_action_risk(action, balls, table, valid_targets, simulations=simulations)
+
+        # Phase A: 以“强压犯规”为优先目标
+        # - cue_pocket/eight_illegal/first_contact/no_hit: 严格 0 容忍
+        # - no_pocket_no_rail: 在噪声下可能偶发（尤其是轻球），允许极小概率，避免过度保守
+        rail_allow = 1 if int(simulations) >= 8 else 0
+        ok = (
+            risk['physics_fail'] == 0
+            and risk['cue_pocket'] == 0
+            and risk['eight_illegal'] == 0
+            and risk['first_contact'] == 0
+            and risk['no_hit'] == 0
+            and risk['no_pocket_no_rail'] <= rail_allow
+        )
+
+        # Adaptive tightening: pre-clear illegal-8 is game-losing but can be a low-probability tail event.
+        # If we see warning signs, re-check with more samples (kept narrow to control runtime).
+        can_shoot_8 = ('8' in valid_targets)
+        need_extra = (
+            (not can_shoot_8)
+            and (
+                risk.get('eight_near_pocket', 0) > 0
+                or (risk.get('eight_moved', 0) > 0 and risk.get('eight_danger', 0) > 0)
+            )
+        )
+
+        if ok and int(simulations) < 18 and need_extra:
+            risk2 = self._assess_action_risk(action, balls, table, valid_targets, simulations=18)
+            rail_allow2 = 1  # >=8
+            ok = (
+                risk2['physics_fail'] == 0
+                and risk2['cue_pocket'] == 0
+                and risk2['eight_illegal'] == 0
+                and risk2['first_contact'] == 0
+                and risk2['no_hit'] == 0
+                and risk2['no_pocket_no_rail'] <= rail_allow2
+            )
+
+        if (not ok) and self.debug_mode:
+            print(f"   [DEBUG] risk={risk}")
+        return ok
+
+    def _simulate_deterministic_once(self, action, balls, table, max_events=550):
         """无噪声确定性仿真一次，用于快速判定“是否至少是合法且能碰到球”。"""
         action = self._sanitize_action(action)
         sim_balls = {k: copy.deepcopy(v) for k, v in balls.items()}
         cue = pt.Cue(cue_ball_id="cue")
         shot = pt.System(table=copy.deepcopy(table), balls=sim_balls, cue=cue)
         shot.cue.set_state(**action)
-        pt.simulate(shot, inplace=True, max_events=max_events)
+        # 用超时保护 + 更高的 max_events，避免漏掉“后续黑8进袋/白球进袋”等长尾事件。
+        ok = simulate_with_timeout(shot, timeout=2, max_events=max_events)
+        if not ok:
+            raise SimulationTimeoutError("simulate timeout")
         new_pocketed = [bid for bid, b in shot.balls.items() if b.state.s == 4 and balls[bid].state.s != 4]
         return shot, new_pocketed
 
     def _is_action_legal_deterministic(self, action, balls, table, valid_targets):
         """确定性合法性检查：避免 no_hit / 首球犯规 / 白球进袋 / 误打黑8。"""
         can_shoot_8 = ('8' in valid_targets)
+        eight_danger = (not can_shoot_8) and self._is_eight_in_pocket_danger(balls, table)
         try:
-            shot, new_pocketed = self._simulate_deterministic_once(action, balls, table, max_events=350)
+            # 清台前提高 max_events，减少“误打黑8/白球进袋”被截断漏检
+            det_events = 950 if (not can_shoot_8) else 550
+            shot, new_pocketed = self._simulate_deterministic_once(action, balls, table, max_events=det_events)
         except Exception:
             return False
 
         if 'cue' in new_pocketed:
             return False
         if '8' in new_pocketed and not can_shoot_8:
+            return False
+        # Conditional pre-clear constraint: only forbid 8 contact when 8 is already near a pocket.
+        if eight_danger and self._shot_touches_ball(shot, '8'):
             return False
 
         is_legal, first_ball = self._check_first_contact(shot, valid_targets)
@@ -1221,8 +905,9 @@ class NewAgent(Agent):
         if not target_ids:
             return None
 
-        phi_jitter = [0.0, 1.0, -1.0, 2.0, -2.0, 3.0, -3.0, 5.0, -5.0]
-        v_candidates = [2.5, 3.0, 3.5, 4.0, 4.5]
+        # strict gate 下需要更“可行”的探索空间，否则容易找不到任何可用动作
+        phi_jitter = [0.0, 1.0, -1.0, 2.0, -2.0, 3.0, -3.0, 5.0, -5.0, 8.0, -8.0, 12.0, -12.0]
+        v_candidates = [2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5]
 
         tries = 0
         for tid in target_ids[:4]:
@@ -1251,16 +936,59 @@ class NewAgent(Agent):
         """统一出口：保证返回的动作尽可能安全；不安全则修补/兜底。"""
         action = self._sanitize_action(action)
         valid_targets, can_shoot_8 = self._get_valid_targets(balls, my_targets)
-        if valid_targets and self._is_action_safe(action, balls, table, valid_targets, simulations=safety_sims):
+
+        # 清台前把安全验证加严，专门压“误打黑8/白球进袋/首球犯规”的尾部风险
+        stage_sims = max(int(safety_sims), 14) if (not can_shoot_8) else int(safety_sims)
+        # 先做一次确定性合法性预检，避免把“根本碰不到球/首球不合法”的动作送进昂贵 MC。
+        if valid_targets and (not self._is_action_legal_deterministic(action, balls, table, valid_targets)):
+            repaired0 = self._try_repair_action(action, balls, table, my_targets, safety_sims=max(6, stage_sims - 2))
+            if repaired0 is not None:
+                action = repaired0
+
+        if valid_targets and self._is_action_safe(action, balls, table, valid_targets, simulations=stage_sims):
             return action
 
-        repaired = self._try_repair_action(action, balls, table, my_targets, safety_sims=max(6, safety_sims - 2))
+        repaired = self._try_repair_action(action, balls, table, my_targets, safety_sims=max(6, stage_sims - 2))
         if repaired is not None:
             return repaired
 
-        fallback = self._find_any_safe_action(balls, table, my_targets, attempts=50, safety_sims=6)
+        fallback = self._find_any_safe_action(balls, table, my_targets, attempts=120, safety_sims=6)
         if fallback is not None:
             return fallback
+
+        # strict gate 可能导致“完全找不到安全动作”，此时不能直接返回原动作（会抬高犯规）。
+        # 改为：构造一组“保证能碰到合法球”的保守候选，并选择风险最小的一个。
+        valid_targets, _ = self._get_valid_targets(balls, my_targets)
+        cue_pos = balls['cue'].state.rvw[0]
+        target_ids = [tid for tid in valid_targets if tid in balls and balls[tid].state.s != 4]
+        if target_ids:
+            target_ids.sort(key=lambda tid: self._distance(cue_pos, balls[tid].state.rvw[0]))
+            tid0 = target_ids[0]
+            base_phi = self._angle_to_phi(self._normalize(balls[tid0].state.rvw[0] - cue_pos))
+            phi_offsets = [0.0, 1.0, -1.0, 2.0, -2.0, 3.0, -3.0, 5.0, -5.0]
+            v0s = [2.5, 3.0, 3.5, 4.0, 4.5]
+            candidates = []
+            for v0 in v0s:
+                for dphi in phi_offsets:
+                    cand = {
+                        'V0': float(v0),
+                        'phi': float((base_phi + dphi) % 360),
+                        'theta': 0.0,
+                        'a': 0.0,
+                        'b': 0.0,
+                    }
+                    if self._is_action_legal_deterministic(cand, balls, table, valid_targets):
+                        candidates.append(cand)
+
+            # 先尝试找一个真正 safe 的（用较少次数提高可找到性）
+            for cand in candidates:
+                if self._is_action_safe(cand, balls, table, valid_targets, simulations=6):
+                    return cand
+
+            # 否则选“最小风险”的一个，尽量压 first-contact/no-hit
+            picked = self._pick_min_risk_action(candidates, balls, table, my_targets, simulations=6)
+            if picked is not None:
+                return picked
 
         # 放宽标准的最后一试：只在“允许打8”的收官阶段启用。
         # 清台前放宽会显著抬高 eight_illegal（误打黑8）。
@@ -1287,7 +1015,8 @@ class NewAgent(Agent):
         pbounds = {
             'V0': (max(0.5, geo_action['V0'] - 1.5), min(8.0, geo_action['V0'] + 1.5)),
             'phi': (geo_action['phi'] - 3.0, geo_action['phi'] + 3.0),  # 扩大搜索范围
-            'theta': (0, 0), 'a': (-self.AB_LIMIT, self.AB_LIMIT), 'b': (-self.AB_LIMIT, self.AB_LIMIT)
+            # 稳定性优先：固定 theta/a/b，减少因偏杆/跳球带来的噪声敏感与白球进袋
+            'theta': (0, 0), 'a': (0.0, 0.0), 'b': (0.0, 0.0)
         }
         
         last_state = {bid: copy.deepcopy(ball) for bid, ball in balls.items()}
@@ -1298,9 +1027,10 @@ class NewAgent(Agent):
             return geo_action
 
         def reward_fn(V0, phi, theta, a, b):
-            # 与 finalize 的参数裁剪保持一致，减少“优化器学到高风险 a/b”的情况
-            a = float(np.clip(a, -self.AB_LIMIT, self.AB_LIMIT))
-            b = float(np.clip(b, -self.AB_LIMIT, self.AB_LIMIT))
+            # theta/a/b 已固定；这里仍做一次明确赋值，避免边界浮动
+            theta = 0.0
+            a = 0.0
+            b = 0.0
             sim_balls = {bid: copy.deepcopy(ball) for bid, ball in balls.items()}
             cue = pt.Cue(cue_ball_id="cue")
             shot = pt.System(table=copy.deepcopy(table), balls=sim_balls, cue=cue)
@@ -1372,6 +1102,7 @@ class NewAgent(Agent):
         """验证并微调（不允许跳过安全检查）"""
         action = self._sanitize_action(action)
         valid_targets, can_shoot_8 = self._get_valid_targets(balls, my_targets)
+        eight_danger = (not can_shoot_8) and self._is_eight_in_pocket_danger(balls, table)
         
         if not valid_targets:
             return self._defense_shot(balls, my_targets, table)
@@ -1407,13 +1138,18 @@ class NewAgent(Agent):
             # 基础过滤
             if 'cue' in new_pocketed or ('8' in new_pocketed and not can_shoot_8):
                 continue
+
+            if eight_danger and self._shot_touches_ball(shot, '8'):
+                continue
             
             is_legal, _ = self._check_first_contact(shot, valid_targets)
             if not is_legal:
                 continue
             
             # === 第二步：抗噪鲁棒性测试（强制执行，不允许跳过）===
-            if not self._is_action_safe(test_action, balls, table, valid_targets, simulations=10):
+            # 清台前对“误打黑8/白球进袋”更敏感，增加测试次数以压低尾部风险
+            sims = 14 if (not can_shoot_8) else 10
+            if not self._is_action_safe(test_action, balls, table, valid_targets, simulations=sims):
                 continue  # 🔴 关键：必须通过安全测试
             
             # === 第三步：优先返回进球方案 ===
@@ -1549,67 +1285,115 @@ class NewAgent(Agent):
         return {'V0': 6.0, 'phi': float(base_phi), 'theta': 0.0, 'a': 0.0, 'b': 0.0}
 
     def _choose_best_target(self, balls, my_targets, table):
-        """选择最佳目标"""
+        """选择最佳目标（返回单个最优候选）。"""
+        cands = self._choose_top_targets(balls, my_targets, table, top_k=1)
+        return (cands[0][0], cands[0][1]) if cands else None
+
+    def _choose_top_targets(self, balls, my_targets, table, top_k=6):
+        """枚举并返回多个“直塞进袋”候选。
+
+        设计目标：
+        - 过去只选一个(目标,袋口)容易卡死在“看起来最好但很难进”的路线。
+        - 这里先用几何/遮挡启发式做粗筛，再在 decision() 里对 top-K 做更精确评估。
+
+        Returns:
+            list[tuple[target_id, pocket_id, heuristic_score]] (按分数降序)
+        """
         valid_targets, can_shoot_8 = self._get_valid_targets(balls, my_targets)
-        
         if not valid_targets:
-            return None
-        
-        best_choice = None
-        best_score = -1e9
+            return []
+
         cue_pos = balls['cue'].state.rvw[0]
-        
+        candidates = []
+
         for target_id in valid_targets:
-            if balls[target_id].state.s == 4: continue
+            if target_id not in balls or balls[target_id].state.s == 4:
+                continue
             target_pos = balls[target_id].state.rvw[0]
-            
+
             for pocket_id, pocket in table.pockets.items():
-                score = 0
                 pocket_pos = pocket.center
-                
-                dist_cue_target = self._distance(cue_pos, target_pos)
-                dist_target_pocket = self._distance(target_pos, pocket_pos)
-                score += 50 / (1 + dist_cue_target + dist_target_pocket)
-                
+
+                # 粗筛：切角过大直接放弃（略放宽以增加可用进攻线路）
                 cut_angle = self._calculate_cut_angle(cue_pos, target_pos, pocket_pos)
-                if cut_angle > 75: continue  # 降低切角上限（80→75）
-                score += (90 - cut_angle) * 1.5
-                
-                obs_1 = self._count_obstructions(
-                    balls, cue_pos, target_pos, exclude_ids=['cue', target_id]
-                )
-                # 本agent不做借库/跳球，直接排除“白球到目标球有遮挡”的路线
+                if cut_angle > 80:
+                    continue
+
+                # 粗筛：直线遮挡直接放弃（不做借库/跳球）
+                obs_1 = self._count_obstructions(balls, cue_pos, target_pos, exclude_ids=['cue', target_id])
                 if obs_1 > 0:
                     continue
-                
-                obs_2 = self._count_obstructions(
-                    balls, target_pos, pocket_pos, exclude_ids=['cue', target_id]
-                )
-                # 同理：目标球到袋口遮挡的路线直接放弃
+                obs_2 = self._count_obstructions(balls, target_pos, pocket_pos, exclude_ids=['cue', target_id])
                 if obs_2 > 0:
                     continue
-                
-                ghost_pos = self._calculate_ghost_ball(target_pos, pocket_pos)
-                for pid_danger, p_danger in table.pockets.items():
-                    if self._distance(ghost_pos, p_danger.center) < 0.15:  # 提高安全距离
-                        score -= 400
 
-                # Scratch-risk penalty: avoid selections where the cue-to-ghost ray runs toward a pocket.
-                # This reduces the baseline probability of cue_pocket under noise.
+                # 启发式打分（只用于排序，不代表最终价值）
+                dist_cue_target = self._distance(cue_pos, target_pos)
+                dist_target_pocket = self._distance(target_pos, pocket_pos)
+                score = 0.0
+                score += 50.0 / (1.0 + dist_cue_target + dist_target_pocket)
+                score += (90.0 - cut_angle) * 1.5
+
+                # ghost 附近的“误入其它袋”风险
+                ghost_pos = self._calculate_ghost_ball(target_pos, pocket_pos)
+                for _, p_danger in table.pockets.items():
+                    if self._distance(ghost_pos, p_danger.center) < 0.15:
+                        score -= 400.0
+
+                # 轻量 scratch 风险（仅当作 tie-breaker）
                 scratch_risk = self._estimate_scratch_risk(cue_pos, np.append(ghost_pos, 0.0), table)
                 if scratch_risk > 0:
-                    # Keep this as a mild preference (tie-breaker-ish), not a dominating term,
-                    # to avoid hurting winrate by forcing overly suboptimal pot selections.
-                    score -= 350.0 * scratch_risk
-                
+                    score -= 250.0 * scratch_risk
+
+                # 收官阶段：鼓励黑8
                 if target_id == '8' and can_shoot_8:
-                    score += 500
-                
-                if score > best_score:
-                    best_score = score
-                    best_choice = (target_id, pocket_id)
-        
-        return best_choice
+                    score += 500.0
+
+                candidates.append((target_id, pocket_id, float(score)))
+
+        candidates.sort(key=lambda x: x[2], reverse=True)
+        return candidates[: max(1, int(top_k))]
+
+    def _quick_shot_quality(self, action, balls, table, my_targets):
+        """对动作做一次无噪声仿真，并给出“进攻价值”粗评分。
+
+        用途：在多个候选之间做决策，不替代 finalize 的严格安全检查。
+
+        Returns:
+            (quality_score, own_pocketed_count, enemy_pocketed_count)
+        """
+        valid_targets, can_shoot_8 = self._get_valid_targets(balls, my_targets)
+        if not valid_targets:
+            return -1e9, 0, 0
+
+        # 清台前提高 max_events，减少误判（尤其是后续黑8/白球进袋）
+        max_events = 950 if (not can_shoot_8) else 450
+        try:
+            shot, new_pocketed = self._simulate_deterministic_once(action, balls, table, max_events=max_events)
+        except Exception:
+            return -1e9, 0, 0
+
+        # 与环境对齐：白球/非法黑8 是致命
+        if 'cue' in new_pocketed:
+            return -1e9, 0, 0
+        if ('8' in new_pocketed) and (not can_shoot_8):
+            return -1e9, 0, 0
+
+        is_legal, _ = self._check_first_contact(shot, valid_targets)
+        if not is_legal:
+            return -1e9, 0, 0
+
+        own_pocketed = [bid for bid in new_pocketed if bid in valid_targets]
+        enemy_pocketed = [bid for bid in new_pocketed if bid not in valid_targets and bid not in ['cue', '8']]
+
+        # 进攻导向：更偏向“清球速度”，减少因 60 杆上限导致的点数输。
+        base = analyze_shot_for_reward(shot, {bid: copy.deepcopy(ball) for bid, ball in balls.items()}, valid_targets)
+        progress = 80.0 * len(own_pocketed) - 30.0 * len(enemy_pocketed)
+
+        # 若没进球，适度惩罚（鼓励尽量争取继续出杆）
+        no_pocket_penalty = -12.0 if len(new_pocketed) == 0 else 0.0
+
+        return float(base + progress + no_pocket_penalty), len(own_pocketed), len(enemy_pocketed)
 
     def _geometric_shot(self, cue_pos, target_pos, pocket_pos):
         """几何预瞄"""
@@ -1683,33 +1467,58 @@ class NewAgent(Agent):
                     mean_r = 999.0
 
                 if mean_r < 0.12:
-                    print("   [NewAgent] 🎱 开球")
+                    if self.debug_mode:
+                        print("   [NewAgent] 🎱 开球")
                     action = self.get_break_shot_for_targets(balls, my_targets, table)
                     return self._finalize_action(action, balls, table, my_targets, safety_sims=12)
             
             # 选择目标
-            choice = self._choose_best_target(balls, my_targets, table)
-            if not choice:
+            candidates = self._choose_top_targets(balls, my_targets, table, top_k=10)
+            if not candidates:
                 action = self._defense_shot(balls, my_targets, table)
                 return self._finalize_action(action, balls, table, my_targets, safety_sims=8)
-            
-            tid, pid = choice
-            cue_pos = balls['cue'].state.rvw[0]
-            target_pos = balls[tid].state.rvw[0]
-            pocket_pos = table.pockets[pid].center
-            
-            print(f"   [NewAgent] 🎯 目标: {tid} → 袋口: {pid}")
-            
-            # 几何预瞄
-            geo_action = self._geometric_shot(cue_pos, target_pos, pocket_pos)
-            
-            # 贝叶斯优化
-            final_action = self._optimized_search(geo_action, balls, my_targets, table)
-            
-            # 三重验证（强制执行）
-            final_action = self._validate_and_adjust(final_action, balls, table, my_targets)
-            
-            return self._finalize_action(final_action, balls, table, my_targets, safety_sims=10)
+
+            # 多候选策略：
+            # - 前2个候选做一次贝叶斯微调（成本较高但更有希望“稳进”）
+            # - 其余候选直接走几何+验证+finalize（防止只盯一个路线卡死）
+            best_action = None
+            best_q = -1e18
+
+            for idx, (tid, pid, _) in enumerate(candidates):
+                cue_pos = balls['cue'].state.rvw[0]
+                target_pos = balls[tid].state.rvw[0]
+                pocket_pos = table.pockets[pid].center
+
+                if idx == 0:
+                    if self.debug_mode:
+                        print(f"   [NewAgent] 🎯 目标候选: {tid} → 袋口: {pid} (top-{len(candidates)})")
+                elif self.debug_mode:
+                    print(f"   [DEBUG] 候选{idx+1}: {tid}->{pid}")
+
+                geo_action = self._geometric_shot(cue_pos, target_pos, pocket_pos)
+
+                if idx < 2:
+                    cand = self._optimized_search(geo_action, balls, my_targets, table)
+                else:
+                    cand = geo_action
+
+                cand = self._validate_and_adjust(cand, balls, table, my_targets)
+                cand = self._finalize_action(cand, balls, table, my_targets, safety_sims=10)
+
+                q, own_cnt, _ = self._quick_shot_quality(cand, balls, table, my_targets)
+                if q > best_q:
+                    best_q = q
+                    best_action = cand
+
+                # 若找到“确定性可进己方球”的方案，优先立即采用
+                if own_cnt > 0:
+                    return best_action
+
+            if best_action is not None:
+                return best_action
+
+            action = self._defense_shot(balls, my_targets, table)
+            return self._finalize_action(action, balls, table, my_targets, safety_sims=8)
         
         except Exception as e:
             print(f"   [ERROR] 决策失败: {e}")
