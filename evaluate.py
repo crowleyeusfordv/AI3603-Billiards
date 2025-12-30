@@ -17,8 +17,7 @@ import time
 
 from utils import set_random_seed
 from poolenv import PoolEnv
-from agent import BasicAgent, NewAgent
-
+from agents import BasicAgent, BasicAgentPro, NewAgent
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Evaluate BasicAgent vs NewAgent")
@@ -79,7 +78,8 @@ def main() -> int:
     game_logs = []
 
     n_games = int(args.games)
-    agent_a, agent_b = BasicAgent(), NewAgent()
+    # agent_a, agent_b = BasicAgent(), NewAgent()
+    agent_a, agent_b = BasicAgentPro(), NewAgent() # 与 BasicAgentPro 对打
     players = [agent_a, agent_b]
     target_ball_choice = ['solid', 'solid', 'stripe', 'stripe']
 
@@ -128,11 +128,27 @@ def main() -> int:
 
             # 根据当前player选择对应agent
             if player == 'A':
-                action = players[i % 2].decision(*obs)
+                acting_agent_obj = players[i % 2]
+                action = acting_agent_obj.decision(*obs)
                 current_agent = 'AGENT_A' if (i % 2 == 0) else 'AGENT_B'
             else:
-                action = players[(i + 1) % 2].decision(*obs)
+                acting_agent_obj = players[(i + 1) % 2]
+                action = acting_agent_obj.decision(*obs)
                 current_agent = 'AGENT_B' if (i % 2 == 0) else 'AGENT_A'
+
+            acting_agent_name = acting_agent_obj.__class__.__name__
+
+            # Make action JSON-safe for logging/debugging
+            try:
+                action_log = {
+                    'V0': float(action.get('V0', 0.0)),
+                    'phi': float(action.get('phi', 0.0)),
+                    'theta': float(action.get('theta', 0.0)),
+                    'a': float(action.get('a', 0.0)),
+                    'b': float(action.get('b', 0.0)),
+                }
+            except Exception:
+                action_log = {'raw': str(action)}
 
             # 统计击球数
             foul_stats[current_agent]['total_shots'] += 1
@@ -180,6 +196,8 @@ def main() -> int:
                     'shot': env.hit_count,
                     'player': player,
                     'agent': current_agent,
+                    'agent_name': acting_agent_name,
+                    'action': action_log,
                     'types': foul_this_shot
                 })
 
