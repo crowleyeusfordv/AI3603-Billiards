@@ -78,8 +78,8 @@ def main() -> int:
     game_logs = []
 
     n_games = int(args.games)
-    # agent_a, agent_b = BasicAgent(), NewAgent()
-    agent_a, agent_b = BasicAgentPro(), NewAgent() # 与 BasicAgentPro 对打
+    agent_a, agent_b = BasicAgent(), NewAgent()  # 与 BasicAgent 对打
+    # agent_a, agent_b = BasicAgentPro(), NewAgent() # 与 BasicAgentPro 对打
     players = [agent_a, agent_b]
     target_ball_choice = ['solid', 'solid', 'stripe', 'stripe']
 
