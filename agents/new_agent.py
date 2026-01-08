@@ -1,4 +1,4 @@
-"""NewAgent - Phase 28: CMA-ES + MCTS Hybrid Pro V2
+"""NewAgent - Phase 28: CMA-ES + MCTS Hybrid Pro V2 (多进程优化版)
 
 核心改进（对标BasicAgentPro）：
 1. 采用Ghost Ball瞄准法生成启发式候选动作（与BasicAgentPro一致）
@@ -8,6 +8,7 @@
 5. 更激进的进球策略 + 安全保障
 6. 旋转参数优化（上下旋控制走位）
 7. 增强的路径检测和防守策略
+8. **多进程并行物理模拟加速**
 """
 
 import math
@@ -19,9 +20,31 @@ import os
 from datetime import datetime
 import random
 import signal
+import multiprocessing as mp
+from functools import partial
 
 # CMA-ES for evolutionary optimization
 import cma
+
+
+# ============ 多进程配置 ============
+# 全局进程池（懒加载）
+_global_pool = None
+_pool_size = max(1, mp.cpu_count() - 1)  # 留一个核心给主进程
+
+def get_pool():
+    """获取全局进程池（懒加载）"""
+    global _global_pool
+    if _global_pool is None:
+        _global_pool = mp.Pool(processes=_pool_size, initializer=_init_worker)
+    return _global_pool
+
+def _init_worker():
+    """初始化worker进程"""
+    # 每个worker使用不同的随机种子
+    seed = os.getpid() + int(random.random() * 10000)
+    random.seed(seed)
+    np.random.seed(seed)
 
 
 # ============ 超时安全模拟机制 ============
@@ -49,6 +72,119 @@ def simulate_with_timeout(shot, timeout=3):
         raise e
     finally:
         signal.signal(signal.SIGALRM, old_handler)
+
+
+# ============ 序列化辅助函数 ============
+def serialize_balls(balls):
+    """序列化球状态为可pickle的dict"""
+    data = {}
+    for bid, ball in balls.items():
+        data[bid] = {
+            'rvw': ball.state.rvw.copy(),
+            's': ball.state.s,
+            't': ball.state.t,
+            'params': {
+                'm': ball.params.m,
+                'R': ball.params.R,
+            }
+        }
+    return data
+
+def deserialize_balls(data):
+    """从序列化数据重建球对象"""
+    balls = {}
+    for bid, info in data.items():
+        ball = pt.Ball.create(bid, xy=info['rvw'][0][:2])
+        ball.state.rvw = info['rvw']
+        ball.state.s = info['s']
+        ball.state.t = info['t']
+        balls[bid] = ball
+    return balls
+
+def serialize_table(table):
+    """序列化球桌（简化版：只传必要参数）"""
+    return {
+        'l': table.l,
+        'w': table.w,
+        'table_type': 'pocket'  # 假设都是标准袋球台
+    }
+
+def deserialize_table(data):
+    """重建球桌"""
+    return pt.Table.from_table_specs(PocketTableSpecs())
+
+
+# ============ 并行模拟Worker函数 ============
+def _simulate_single_action_worker(args):
+    """Worker函数：执行单次带噪声的物理模拟
+    
+    Args:
+        args: (balls_data, table_data, action, sim_noise, worker_seed)
+    
+    Returns:
+        dict: 模拟结果
+    """
+    balls_data, table_data, action, sim_noise, worker_seed = args
+    
+    # 设置随机种子
+    random.seed(worker_seed)
+    np.random.seed(worker_seed)
+    
+    try:
+        # 重建环境
+        balls = deserialize_balls(balls_data)
+        table = deserialize_table(table_data)
+        cue = pt.Cue(cue_ball_id="cue")
+        shot = pt.System(table=table, balls=balls, cue=cue)
+        
+        # 注入高斯噪声
+        noisy_V0 = np.clip(action['V0'] + np.random.normal(0, sim_noise['V0']), 0.5, 8.0)
+        noisy_phi = (action['phi'] + np.random.normal(0, sim_noise['phi'])) % 360
+        noisy_theta = np.clip(action['theta'] + np.random.normal(0, sim_noise['theta']), 0, 90)
+        noisy_a = np.clip(action['a'] + np.random.normal(0, sim_noise['a']), -0.5, 0.5)
+        noisy_b = np.clip(action['b'] + np.random.normal(0, sim_noise['b']), -0.5, 0.5)
+        
+        cue.set_state(V0=noisy_V0, phi=noisy_phi, theta=noisy_theta, a=noisy_a, b=noisy_b)
+        
+        # 执行模拟（带超时）
+        if not simulate_with_timeout(shot, timeout=3):
+            return {'success': False, 'error': 'timeout'}
+        
+        # 提取结果
+        result = {
+            'success': True,
+            'balls_final': {},
+            'first_contact': None,
+            'events_summary': []
+        }
+        
+        # 记录球的最终状态
+        for bid, ball in shot.balls.items():
+            result['balls_final'][bid] = {
+                'rvw': ball.state.rvw.copy(),
+                's': ball.state.s
+            }
+        
+        # 分析首球碰撞
+        valid_ball_ids = {'1','2','3','4','5','6','7','8','9','10','11','12','13','14','15'}
+        for e in shot.events:
+            et = str(e.event_type).lower()
+            ids = list(e.ids) if hasattr(e, 'ids') else []
+            
+            # 记录事件摘要
+            result['events_summary'].append({'type': et, 'ids': ids})
+            
+            # 找首球碰撞
+            if result['first_contact'] is None:
+                if 'cushion' not in et and 'pocket' not in et and 'cue' in ids:
+                    other_ids = [i for i in ids if i != 'cue' and i in valid_ball_ids]
+                    if other_ids:
+                        result['first_contact'] = other_ids[0]
+        
+        return result
+        
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
 
 
 def analyze_shot_for_reward(shot: pt.System, last_state: dict, player_targets: list):
@@ -145,7 +281,7 @@ class Agent():
 
 
 class NewAgent(Agent):
-    """NewAgent - Phase 28: CMA-ES + MCTS Hybrid Pro V2
+    """NewAgent - Phase 28: CMA-ES + MCTS Hybrid Pro V2 (多进程优化版)
     
     核心改进（对标并超越BasicAgentPro）：
     1. Ghost Ball瞄准法 + 多力度/角度/旋转变种生成大量候选
@@ -154,14 +290,15 @@ class NewAgent(Agent):
     4. 噪声注入鲁棒性评估
     5. 走位考虑：优先选择能连续进球的动作
     6. 防守策略：当无好球时安全出杆
+    7. **多进程并行物理模拟，大幅减少决策时间**
     """
     
-    def __init__(self):
+    def __init__(self, use_multiprocess=True, n_workers=None):
         super().__init__()
         self.ball_radius = 0.028575
         
         # 增加模拟次数 - 更多模拟提高评估准确性
-        self.n_simulations = 150  # 增加到150次
+        self.n_simulations = 250  # 增加到250次
         self.c_puct = 0.5  # 更偏向exploitation
         
         # 噪声参数（与poolenv对齐）
@@ -172,9 +309,44 @@ class NewAgent(Agent):
         # 启用CMA-ES优化top候选
         self.use_cma_es = True
         self.cma_top_k = 8  # 对前8个候选进行CMA-ES优化
-        self.cma_evals = 50  # CMA-ES评估次数
+        self.cma_evals = 80  # CMA-ES评估次数
         
-        print("[NewAgent] Phase 30: Stable 80%+ MCTS + CMA-ES 已初始化")
+        # 多进程配置
+        # 检测是否在子进程中运行（daemon进程不能创建子进程）
+        try:
+            current_process = mp.current_process()
+            is_daemon = current_process.daemon
+        except:
+            is_daemon = False
+        
+        # 如果是daemon进程，禁用多进程
+        if is_daemon:
+            self.use_multiprocess = False
+            self.n_workers = 1
+        else:
+            self.use_multiprocess = use_multiprocess
+            self.n_workers = n_workers or max(1, mp.cpu_count() - 1)
+        
+        self._local_pool = None
+        
+        print(f"[NewAgent] Phase 30: Stable 80%+ MCTS + CMA-ES 已初始化 (多进程: {self.use_multiprocess}, Workers: {self.n_workers})")
+
+    def _get_pool(self):
+        """获取进程池"""
+        if not self.use_multiprocess:
+            return None
+        if self._local_pool is None:
+            self._local_pool = mp.Pool(processes=self.n_workers, initializer=_init_worker)
+        return self._local_pool
+
+    def __del__(self):
+        """清理进程池"""
+        if self._local_pool is not None:
+            try:
+                self._local_pool.close()
+                self._local_pool.join()
+            except:
+                pass
 
     # ========== 工具函数（与BasicAgentPro对齐）==========
     def _calc_angle_degrees(self, v):
@@ -430,9 +602,9 @@ class NewAgent(Agent):
         norm = np.linalg.norm(vec)
         return vec / norm if norm > 1e-6 else np.array([1.0, 0.0])
 
-    # ========== 带噪声模拟（与BasicAgentPro对齐）==========
+    # ========== 带噪声模拟（支持多进程）==========
     def simulate_action(self, balls, table, action):
-        """执行带噪声的物理仿真（与BasicAgentPro完全一致）"""
+        """执行带噪声的物理仿真（单次，用于兼容原有代码）"""
         sim_balls = {bid: copy.deepcopy(ball) for bid, ball in balls.items()}
         sim_table = copy.deepcopy(table)
         cue = pt.Cue(cue_ball_id="cue")
@@ -454,93 +626,309 @@ class NewAgent(Agent):
         except Exception:
             return None
 
-    # ========== CMA-ES优化器（增强版V4：更多评估+首球验证）==========
+    def batch_simulate_actions(self, balls, table, actions, n_simulations_per_action=1):
+        """批量并行模拟多个动作
+        
+        Args:
+            balls: 球状态
+            table: 球桌
+            actions: 动作列表
+            n_simulations_per_action: 每个动作模拟次数
+        
+        Returns:
+            list of list: 每个动作的模拟结果列表
+        """
+        if not self.use_multiprocess or len(actions) == 0:
+            # 单进程模式
+            results = []
+            for action in actions:
+                action_results = []
+                for _ in range(n_simulations_per_action):
+                    shot = self.simulate_action(balls, table, action)
+                    if shot is None:
+                        action_results.append({'success': False, 'error': 'simulation_failed'})
+                    else:
+                        # 转换为结果格式
+                        result = self._extract_shot_result(shot, balls)
+                        action_results.append(result)
+                results.append(action_results)
+            return results
+        
+        # 多进程模式
+        try:
+            balls_data = serialize_balls(balls)
+            table_data = serialize_table(table)
+            
+            # 准备所有任务
+            tasks = []
+            base_seed = random.randint(0, 100000)
+            task_idx = 0
+            
+            for action_idx, action in enumerate(actions):
+                for sim_idx in range(n_simulations_per_action):
+                    worker_seed = base_seed + task_idx
+                    tasks.append((balls_data, table_data, action, self.sim_noise, worker_seed))
+                    task_idx += 1
+            
+            # 并行执行
+            pool = self._get_pool()
+            all_results = pool.map(_simulate_single_action_worker, tasks)
+            
+            # 按动作分组结果
+            results = []
+            idx = 0
+            for action_idx, action in enumerate(actions):
+                action_results = []
+                for sim_idx in range(n_simulations_per_action):
+                    action_results.append(all_results[idx])
+                    idx += 1
+                results.append(action_results)
+            
+            return results
+            
+        except Exception as e:
+            # 回退到单进程
+            print(f"[NewAgent] 多进程模拟失败，回退单进程: {e}")
+            return self.batch_simulate_actions.__wrapped__(self, balls, table, actions, n_simulations_per_action)
+    
+    def _extract_shot_result(self, shot, original_balls):
+        """从shot对象提取结果（用于单进程模式）"""
+        result = {
+            'success': True,
+            'balls_final': {},
+            'first_contact': None,
+            'events_summary': []
+        }
+        
+        for bid, ball in shot.balls.items():
+            result['balls_final'][bid] = {
+                'rvw': ball.state.rvw.copy(),
+                's': ball.state.s
+            }
+        
+        valid_ball_ids = {'1','2','3','4','5','6','7','8','9','10','11','12','13','14','15'}
+        for e in shot.events:
+            et = str(e.event_type).lower()
+            ids = list(e.ids) if hasattr(e, 'ids') else []
+            result['events_summary'].append({'type': et, 'ids': ids})
+            
+            if result['first_contact'] is None:
+                if 'cushion' not in et and 'pocket' not in et and 'cue' in ids:
+                    other_ids = [i for i in ids if i != 'cue' and i in valid_ball_ids]
+                    if other_ids:
+                        result['first_contact'] = other_ids[0]
+        
+        return result
+
+    def _analyze_result_for_reward(self, result, last_state_s, player_targets):
+        """从模拟结果计算奖励（适用于并行模拟结果）"""
+        if not result['success']:
+            return -500
+        
+        balls_final = result['balls_final']
+        first_contact = result['first_contact']
+        
+        # 找出新进袋的球
+        new_pocketed = [bid for bid, info in balls_final.items() 
+                       if info['s'] == 4 and last_state_s.get(bid, 0) != 4]
+        
+        own_pocketed = [bid for bid in new_pocketed if bid in player_targets]
+        enemy_pocketed = [bid for bid in new_pocketed if bid not in player_targets and bid not in ["cue", "8"]]
+        
+        cue_pocketed = "cue" in new_pocketed
+        eight_pocketed = "8" in new_pocketed
+        
+        # 首球犯规检测
+        foul_first_hit = False
+        if first_contact is None:
+            if len(last_state_s) > 2 or player_targets != ['8']:
+                foul_first_hit = True
+        elif first_contact not in player_targets:
+            foul_first_hit = True
+        
+        # 碰库检测
+        cue_hit_cushion = False
+        target_hit_cushion = False
+        for ev in result['events_summary']:
+            if 'cushion' in ev['type']:
+                if 'cue' in ev['ids']:
+                    cue_hit_cushion = True
+                if first_contact and first_contact in ev['ids']:
+                    target_hit_cushion = True
+        
+        foul_no_rail = (len(new_pocketed) == 0 and first_contact is not None 
+                       and not cue_hit_cushion and not target_hit_cushion)
+        
+        # 计算分数
+        score = 0
+        
+        if cue_pocketed and eight_pocketed:
+            score -= 500
+        elif cue_pocketed:
+            score -= 100
+        elif eight_pocketed:
+            is_targeting_eight = (len(player_targets) == 1 and player_targets[0] == "8")
+            score += 150 if is_targeting_eight else -500
+        
+        if foul_first_hit:
+            score -= 30
+        if foul_no_rail:
+            score -= 30
+        
+        score += len(own_pocketed) * 50
+        score -= len(enemy_pocketed) * 20
+        
+        if score == 0 and not cue_pocketed and not eight_pocketed and not foul_first_hit and not foul_no_rail:
+            score = 10
+        
+        return score
+
+    # ========== CMA-ES优化器（多进程并行版）==========
     def cma_es_optimize(self, initial_action, balls, my_targets, table, max_evals=None):
-        """使用CMA-ES优化动作参数（增强版V4）"""
+        """使用CMA-ES优化动作参数（多进程并行版）"""
         if max_evals is None:
             max_evals = self.cma_evals
             
-        last_state = {bid: copy.deepcopy(ball) for bid, ball in balls.items()}
+        last_state_s = {bid: ball.state.s for bid, ball in balls.items()}
         valid_targets, can_shoot_8 = self._get_valid_targets(balls, my_targets)
-        cue_pos = balls['cue'].state.rvw[0]
         
-        # 2维优化：V0, phi（旋转参数保持初始值，避免不可预期的8球碰撞）
-        x0 = [
-            initial_action['V0'],
-            initial_action['phi'],
-        ]
-        
+        # 2维优化：V0, phi
+        x0 = [initial_action['V0'], initial_action['phi']]
         init_a = initial_action.get('a', 0.0)
         init_b = initial_action.get('b', 0.0)
         
-        sigma0 = 0.3  # 稍大的初始步长以更好探索
-        
-        # 边界：更宽的角度范围
-        phi_range = 3.0  # 稍宽范围
+        sigma0 = 0.3
+        phi_range = 3.0
         bounds = [
-            [0.5, initial_action['phi'] - phi_range],   # 下界
-            [8.0, initial_action['phi'] + phi_range]    # 上界
+            [0.5, initial_action['phi'] - phi_range],
+            [8.0, initial_action['phi'] + phi_range]
         ]
         
-        def objective(x):
-            """目标函数（最小化，所以取负）"""
-            V0, phi = x
-            phi = phi % 360
-            V0 = np.clip(V0, 0.5, 8.0)
+        # 序列化数据（用于多进程）
+        if self.use_multiprocess:
+            balls_data = serialize_balls(balls)
+            table_data = serialize_table(table)
+        
+        def objective_batch(solutions):
+            """批量评估目标函数（支持并行）"""
+            n_sims_per_solution = 8
             
-            action = {'V0': V0, 'phi': phi, 'theta': 0, 'a': init_a, 'b': init_b}
+            # 构建动作列表
+            actions = []
+            for x in solutions:
+                V0, phi = x
+                phi = phi % 360
+                V0 = np.clip(V0, 0.5, 8.0)
+                actions.append({'V0': V0, 'phi': phi, 'theta': 0, 'a': init_a, 'b': init_b})
             
-            # 多次噪声模拟取平均（增强鲁棒性）- 增加到8次
-            rewards = []
-            eight_danger_count = 0
-            first_foul_count = 0
-            pocket_count = 0
+            if self.use_multiprocess:
+                # 并行模拟
+                try:
+                    tasks = []
+                    base_seed = random.randint(0, 100000)
+                    task_idx = 0
+                    
+                    for action in actions:
+                        for _ in range(n_sims_per_solution):
+                            worker_seed = base_seed + task_idx
+                            tasks.append((balls_data, table_data, action, self.sim_noise, worker_seed))
+                            task_idx += 1
+                    
+                    pool = self._get_pool()
+                    raw_results = pool.map(_simulate_single_action_worker, tasks)
+                    
+                    # 分析结果
+                    fitnesses = []
+                    idx = 0
+                    for action in actions:
+                        rewards = []
+                        eight_danger = 0
+                        first_foul = 0
+                        pocket_count = 0
+                        
+                        for _ in range(n_sims_per_solution):
+                            result = raw_results[idx]
+                            idx += 1
+                            
+                            if not result['success']:
+                                rewards.append(-500)
+                                continue
+                            
+                            # 检查8球犯规
+                            new_pocketed = [bid for bid, info in result['balls_final'].items()
+                                           if info['s'] == 4 and last_state_s.get(bid, 0) != 4]
+                            
+                            own_pocketed = [bid for bid in new_pocketed if bid in valid_targets]
+                            if len(own_pocketed) > 0:
+                                pocket_count += 1
+                            
+                            if '8' in new_pocketed and not can_shoot_8:
+                                eight_danger += 1
+                                rewards.append(-800)
+                                continue
+                            
+                            # 检查首球犯规
+                            first_contact = result['first_contact']
+                            is_legal = (first_contact in valid_targets) if first_contact else False
+                            
+                            if not is_legal:
+                                first_foul += 1
+                                if first_contact == '8' and not can_shoot_8:
+                                    eight_danger += 1
+                                    rewards.append(-800)
+                                    continue
+                                rewards.append(-30)
+                                continue
+                            
+                            r = self._analyze_result_for_reward(result, last_state_s, valid_targets)
+                            rewards.append(r)
+                        
+                        avg_reward = np.mean(rewards)
+                        if eight_danger > 0:
+                            avg_reward -= 300 * eight_danger
+                        if first_foul >= 3:
+                            avg_reward -= 50 * first_foul
+                        if pocket_count >= 6:
+                            avg_reward += 20
+                        
+                        fitnesses.append(-avg_reward)  # 最小化
+                    
+                    return fitnesses
+                    
+                except Exception as e:
+                    pass  # 回退到单进程
             
-            for _ in range(8):  # 8次模拟
-                shot = self.simulate_action(balls, table, action)
-                if shot is None:
-                    rewards.append(-500)
-                else:
-                    # 检查是否会犯规8球
-                    new_pocketed = [bid for bid, b_obj in shot.balls.items() 
-                                   if b_obj.state.s == 4 and last_state[bid].state.s != 4]
-                    
-                    # 记录进球
-                    own_pocketed = [bid for bid in new_pocketed if bid in valid_targets]
-                    if len(own_pocketed) > 0:
-                        pocket_count += 1
-                    
-                    # 非法打进8球 = 极严重
-                    if '8' in new_pocketed and not can_shoot_8:
-                        eight_danger_count += 1
-                        rewards.append(-800)
-                        continue
-                    
-                    # 检查首球犯规
-                    is_legal, first_ball = self._check_first_contact(shot, valid_targets)
-                    if not is_legal:
-                        first_foul_count += 1
-                        if first_ball == '8' and not can_shoot_8:
-                            eight_danger_count += 1
+            # 单进程模式
+            fitnesses = []
+            for action in actions:
+                rewards = []
+                for _ in range(n_sims_per_solution):
+                    shot = self.simulate_action(balls, table, action)
+                    if shot is None:
+                        rewards.append(-500)
+                    else:
+                        new_pocketed = [bid for bid, b in shot.balls.items()
+                                       if b.state.s == 4 and last_state_s.get(bid, 0) != 4]
+                        
+                        if '8' in new_pocketed and not can_shoot_8:
                             rewards.append(-800)
                             continue
-                        rewards.append(-30)  # 首球犯规惩罚
-                        continue
-                    
-                    r = self._evaluate_shot_with_position(shot, last_state, valid_targets, balls, table)
-                    rewards.append(r)
+                        
+                        is_legal, first_ball = self._check_first_contact(shot, valid_targets)
+                        if not is_legal:
+                            if first_ball == '8' and not can_shoot_8:
+                                rewards.append(-800)
+                                continue
+                            rewards.append(-30)
+                            continue
+                        
+                        r = analyze_shot_for_reward(shot, 
+                            {bid: copy.deepcopy(b) for bid, b in balls.items()}, valid_targets)
+                        rewards.append(r)
+                
+                fitnesses.append(-np.mean(rewards))
             
-            avg_reward = np.mean(rewards)
-            # 8球犯规极端惩罚
-            if eight_danger_count > 0:
-                avg_reward -= 300 * eight_danger_count
-            # 首球犯规惩罚
-            if first_foul_count >= 3:
-                avg_reward -= 50 * first_foul_count
-            # 进球一致性奖励
-            if pocket_count >= 6:  # 8次中至少6次进球 = 稳定
-                avg_reward += 20
-            return -avg_reward
+            return fitnesses
         
         try:
             es = cma.CMAEvolutionStrategy(
@@ -550,7 +938,7 @@ class NewAgent(Agent):
             
             while not es.stop():
                 solutions = es.ask()
-                fitnesses = [objective(x) for x in solutions]
+                fitnesses = objective_batch(solutions)
                 es.tell(solutions, fitnesses)
             
             best = es.result.xbest
@@ -613,57 +1001,62 @@ class NewAgent(Agent):
         
         return base_score + position_bonus + multi_ball_bonus
 
-    # ========== MCTS风格评估（增强版V2：CMA-ES后处理）==========
+    # ========== MCTS风格评估（多进程并行版）==========
     def mcts_evaluate(self, candidate_actions, balls, my_targets, table):
-        """MCTS风格的动作评估 + CMA-ES精细优化"""
-        last_state = {bid: copy.deepcopy(ball) for bid, ball in balls.items()}
+        """MCTS风格的动作评估 + CMA-ES精细优化（多进程并行版）"""
         valid_targets, can_shoot_8 = self._get_valid_targets(balls, my_targets)
         
         n_candidates = len(candidate_actions)
         if n_candidates == 0:
             return self._random_action()
         
-        N = np.zeros(n_candidates)  # 访问次数
-        Q = np.zeros(n_candidates)  # 累计奖励
+        # 记录原始状态（用于奖励计算）
+        last_state_s = {bid: ball.state.s for bid, ball in balls.items()}
         
-        # 第一阶段：MCTS探索
-        for i in range(self.n_simulations):
-            # Selection (UCB)
-            if i < n_candidates:
-                idx = i
+        # 计算每个候选的模拟次数分配
+        sims_per_candidate = max(1, self.n_simulations // n_candidates)
+        extra_sims = self.n_simulations % n_candidates
+        
+        # 批量并行模拟所有候选
+        sim_counts = [sims_per_candidate + (1 if i < extra_sims else 0) for i in range(n_candidates)]
+        
+        # 使用多进程批量模拟
+        if self.use_multiprocess:
+            # 准备批量任务
+            all_results = self._parallel_mcts_simulate(candidate_actions, sim_counts, balls, table, valid_targets, last_state_s)
+        else:
+            # 单进程模式
+            all_results = []
+            for idx, action in enumerate(candidate_actions):
+                action_results = []
+                for _ in range(sim_counts[idx]):
+                    shot = self.simulate_action(balls, table, action)
+                    if shot is None:
+                        action_results.append(-500.0)
+                    else:
+                        is_legal, first_ball = self._check_first_contact(shot, valid_targets)
+                        if not is_legal:
+                            action_results.append(-30.0)
+                        else:
+                            action_results.append(analyze_shot_for_reward(shot, 
+                                {bid: copy.deepcopy(b) for bid, b in balls.items()}, valid_targets))
+                all_results.append(action_results)
+        
+        # 计算每个候选的平均分
+        avg_rewards = []
+        for action_results in all_results:
+            if len(action_results) > 0:
+                # 归一化到[0,1]
+                normalized = [(r - (-500)) / 650.0 for r in action_results]
+                normalized = [np.clip(r, 0.0, 1.0) for r in normalized]
+                avg_rewards.append(np.mean(normalized))
             else:
-                total_n = np.sum(N)
-                ucb_values = (Q / (N + 1e-6)) + self.c_puct * np.sqrt(np.log(total_n + 1) / (N + 1e-6))
-                idx = np.argmax(ucb_values)
-            
-            # Simulation (带噪声)
-            shot = self.simulate_action(balls, table, candidate_actions[idx])
-
-            # Evaluation（增强版：包含首球犯规检测）
-            if shot is None:
-                raw_reward = -500.0
-            else:
-                # 先检查首球犯规
-                is_legal, first_ball = self._check_first_contact(shot, valid_targets)
-                if not is_legal:
-                    raw_reward = -30.0  # 首球犯规惩罚
-                else:
-                    raw_reward = analyze_shot_for_reward(shot, last_state, valid_targets)
-            
-            # 归一化到[0,1]
-            normalized_reward = (raw_reward - (-500)) / 650.0
-            normalized_reward = np.clip(normalized_reward, 0.0, 1.0)
-
-            # Backpropagation
-            N[idx] += 1
-            Q[idx] += normalized_reward
-
-        # 计算平均分
-        avg_rewards = Q / (N + 1e-6)
+                avg_rewards.append(0.0)
+        
+        avg_rewards = np.array(avg_rewards)
         
         # 第二阶段：对top-k候选使用CMA-ES优化（如果启用）
         if self.use_cma_es and n_candidates >= 3:
-            # 获取top-k候选的索引
             top_k = min(self.cma_top_k, n_candidates)
             top_indices = np.argsort(avg_rewards)[-top_k:]
             
@@ -671,7 +1064,7 @@ class NewAgent(Agent):
             best_cma_score = -1e9
             
             for idx in top_indices:
-                if avg_rewards[idx] < 0.5:  # 只优化有潜力的候选
+                if avg_rewards[idx] < 0.5:
                     continue
                     
                 optimized_action, opt_score = self.cma_es_optimize(
@@ -682,26 +1075,115 @@ class NewAgent(Agent):
                     best_cma_score = opt_score
                     best_cma_action = optimized_action
             
-            # 如果CMA-ES找到更好的动作，使用它
-            if best_cma_action and best_cma_score > 30:  # 阈值：CMA-ES分数需要足够高
+            if best_cma_action and best_cma_score > 30:
                 print(f"[NewAgent] CMA-ES优化: {best_cma_score:.1f} (MCTS best: {avg_rewards.max():.3f})")
                 return best_cma_action
         
-        # 选择平均分最高的
         best_idx = np.argmax(avg_rewards)
-        
         print(f"[NewAgent] Best Avg Score: {avg_rewards[best_idx]:.3f} (Sims: {self.n_simulations})")
         
         return candidate_actions[best_idx]
 
-    # ========== 8球犯规专项检测 ==========
+    def _parallel_mcts_simulate(self, candidate_actions, sim_counts, balls, table, valid_targets, last_state_s):
+        """并行执行MCTS模拟"""
+        try:
+            balls_data = serialize_balls(balls)
+            table_data = serialize_table(table)
+            
+            # 准备所有任务
+            tasks = []
+            base_seed = random.randint(0, 100000)
+            task_idx = 0
+            task_mapping = []  # 记录任务与候选的对应关系
+            
+            for action_idx, action in enumerate(candidate_actions):
+                for sim_idx in range(sim_counts[action_idx]):
+                    worker_seed = base_seed + task_idx
+                    tasks.append((balls_data, table_data, action, self.sim_noise, worker_seed))
+                    task_mapping.append(action_idx)
+                    task_idx += 1
+            
+            # 并行执行
+            pool = self._get_pool()
+            raw_results = pool.map(_simulate_single_action_worker, tasks)
+            
+            # 计算奖励并按候选分组
+            all_results = [[] for _ in candidate_actions]
+            for i, result in enumerate(raw_results):
+                action_idx = task_mapping[i]
+                reward = self._analyze_result_for_reward(result, last_state_s, valid_targets)
+                
+                # 额外检查首球犯规
+                if result['success']:
+                    first_contact = result['first_contact']
+                    if first_contact and first_contact not in valid_targets:
+                        reward = min(reward, -30.0)
+                
+                all_results[action_idx].append(reward)
+            
+            return all_results
+            
+        except Exception as e:
+            print(f"[NewAgent] 并行MCTS失败: {e}")
+            # 回退单进程
+            all_results = []
+            for idx, action in enumerate(candidate_actions):
+                action_results = []
+                for _ in range(sim_counts[idx]):
+                    shot = self.simulate_action(balls, table, action)
+                    if shot is None:
+                        action_results.append(-500.0)
+                    else:
+                        is_legal, _ = self._check_first_contact(shot, valid_targets)
+                        if not is_legal:
+                            action_results.append(-30.0)
+                        else:
+                            action_results.append(analyze_shot_for_reward(shot, 
+                                {bid: copy.deepcopy(b) for bid, b in balls.items()}, valid_targets))
+                all_results.append(action_results)
+            return all_results
+
+    # ========== 8球犯规专项检测（多进程版）==========
     def _could_cause_8ball_foul(self, action, balls, table, valid_targets, tests=6):
-        """专门检测动作是否可能导致8球犯规"""
+        """专门检测动作是否可能导致8球犯规（支持并行）"""
         can_shoot_8 = ('8' in valid_targets)
         if can_shoot_8:
-            return False  # 可以打8球时不需要检测
+            return False
         
-        foul_count = 0
+        last_state_s = {bid: ball.state.s for bid, ball in balls.items()}
+        
+        if self.use_multiprocess:
+            try:
+                balls_data = serialize_balls(balls)
+                table_data = serialize_table(table)
+                
+                tasks = []
+                base_seed = random.randint(0, 100000)
+                for i in range(tests):
+                    tasks.append((balls_data, table_data, action, self.sim_noise, base_seed + i))
+                
+                pool = self._get_pool()
+                results = pool.map(_simulate_single_action_worker, tasks)
+                
+                for result in results:
+                    if not result['success']:
+                        continue
+                    
+                    new_pocketed = [bid for bid, info in result['balls_final'].items()
+                                   if info['s'] == 4 and last_state_s.get(bid, 0) != 4]
+                    
+                    if '8' in new_pocketed:
+                        return True
+                    
+                    if result['first_contact'] == '8':
+                        return True
+                
+                return False
+                
+            except Exception:
+                pass  # 回退单进程
+        
+        # 单进程模式
         for _ in range(tests):
             shot = self.simulate_action(balls, table, action)
             if shot is None:
@@ -710,22 +1192,48 @@ class NewAgent(Agent):
             new_pocketed = [bid for bid, b in shot.balls.items() 
                           if b.state.s == 4 and balls[bid].state.s != 4]
             
-            # 打进8球 = 犯规
             if '8' in new_pocketed:
-                foul_count += 1
-                continue
+                return True
             
-            # 首球碰撞8球 = 犯规
             is_legal, first_ball = self._check_first_contact(shot, valid_targets)
             if first_ball == '8':
-                foul_count += 1
-                continue
+                return True
         
-        # 任何测试中出现8球犯规都视为危险
-        return foul_count > 0
+        return False
 
     def _quick_first_contact_check(self, action, balls, table, valid_targets, tests=4):
-        """快速检测动作是否可能导致首球犯规（非8球相关）"""
+        """快速检测动作是否可能导致首球犯规（支持并行）"""
+        last_state_s = {bid: ball.state.s for bid, ball in balls.items()}
+        
+        if self.use_multiprocess:
+            try:
+                balls_data = serialize_balls(balls)
+                table_data = serialize_table(table)
+                
+                tasks = []
+                base_seed = random.randint(0, 100000)
+                for i in range(tests):
+                    tasks.append((balls_data, table_data, action, self.sim_noise, base_seed + i))
+                
+                pool = self._get_pool()
+                results = pool.map(_simulate_single_action_worker, tasks)
+                
+                foul_count = 0
+                for result in results:
+                    if not result['success']:
+                        foul_count += 1
+                        continue
+                    
+                    first_contact = result['first_contact']
+                    if first_contact is None or first_contact not in valid_targets:
+                        foul_count += 1
+                
+                return foul_count >= tests // 2
+                
+            except Exception:
+                pass
+        
+        # 单进程
         foul_count = 0
         for _ in range(tests):
             shot = self.simulate_action(balls, table, action)
@@ -737,17 +1245,67 @@ class NewAgent(Agent):
             if not is_legal:
                 foul_count += 1
         
-        # 超过一半测试犯规 = 危险
         return foul_count >= tests // 2
 
-    # ========== 安全验证（增强版）==========
+    # ========== 安全验证（多进程版）==========
     def _is_action_safe(self, action, balls, table, valid_targets, simulations=10):
-        """验证动作安全性（增强版：更严格的检测）"""
+        """验证动作安全性（支持并行）"""
+        can_shoot_8 = ('8' in valid_targets)
+        last_state_s = {bid: ball.state.s for bid, ball in balls.items()}
+        
+        if self.use_multiprocess:
+            try:
+                balls_data = serialize_balls(balls)
+                table_data = serialize_table(table)
+                
+                tasks = []
+                base_seed = random.randint(0, 100000)
+                for i in range(simulations):
+                    tasks.append((balls_data, table_data, action, self.sim_noise, base_seed + i))
+                
+                pool = self._get_pool()
+                results = pool.map(_simulate_single_action_worker, tasks)
+                
+                fatal_count = 0
+                eight_illegal_count = 0
+                
+                for result in results:
+                    if not result['success']:
+                        fatal_count += 1
+                        continue
+                    
+                    new_pocketed = [bid for bid, info in result['balls_final'].items()
+                                   if info['s'] == 4 and last_state_s.get(bid, 0) != 4]
+                    
+                    if 'cue' in new_pocketed:
+                        fatal_count += 1
+                        continue
+                    
+                    if '8' in new_pocketed and not can_shoot_8:
+                        eight_illegal_count += 1
+                        fatal_count += 3
+                        continue
+                    
+                    first_contact = result['first_contact']
+                    if first_contact is None or first_contact not in valid_targets:
+                        if first_contact == '8' and not can_shoot_8:
+                            eight_illegal_count += 1
+                            fatal_count += 3
+                        else:
+                            fatal_count += 1
+                
+                if eight_illegal_count > 0:
+                    return False
+                return fatal_count <= 1
+                
+            except Exception:
+                pass
+        
+        # 单进程
         fatal_count = 0
         first_contact_foul = 0
         cue_pocket_count = 0
         eight_illegal_count = 0
-        can_shoot_8 = ('8' in valid_targets)
         
         for _ in range(simulations):
             shot = self.simulate_action(balls, table, action)
@@ -758,23 +1316,19 @@ class NewAgent(Agent):
             new_pocketed = [bid for bid, b in shot.balls.items() 
                           if b.state.s == 4 and balls[bid].state.s != 4]
             
-            # 白球进袋
             if 'cue' in new_pocketed:
                 cue_pocket_count += 1
                 fatal_count += 1
                 continue
             
-            # 非法黑8（最严重的犯规！）
             if '8' in new_pocketed and not can_shoot_8:
                 eight_illegal_count += 1
-                fatal_count += 3  # 严重惩罚
+                fatal_count += 3
                 continue
             
-            # 首球犯规
             is_legal, first_ball = self._check_first_contact(shot, valid_targets)
             if not is_legal:
                 first_contact_foul += 1
-                # 首球碰撞8球但不能打8球 = 极严重
                 if first_ball == '8' and not can_shoot_8:
                     eight_illegal_count += 1
                     fatal_count += 3
@@ -782,11 +1336,8 @@ class NewAgent(Agent):
                     fatal_count += 1
                 continue
         
-        # 对非法黑8零容忍（包括首球碰撞8球）
         if eight_illegal_count > 0:
             return False
-        
-        # 其他犯规允许最多1次
         return fatal_count <= 1 and first_contact_foul <= 1 and cue_pocket_count <= 1
 
     def _find_safe_action(self, balls, table, my_targets, attempts=40):
